@@ -402,7 +402,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_id: { Args: never; Returns: number }
     }
     Enums: {
       qr_code_status: "assigned" | "unassigned" | "active" | "retired"
