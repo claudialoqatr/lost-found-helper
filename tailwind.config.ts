@@ -13,6 +13,20 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ["Lexend", "system-ui", "sans-serif"],
+      },
+      fontSize: {
+        xs: ["0.694rem", { lineHeight: "1.4" }],
+        sm: ["0.833rem", { lineHeight: "1.5" }],
+        base: ["1rem", { lineHeight: "1.6" }],
+        lg: ["1.2rem", { lineHeight: "1.5" }],
+        xl: ["1.44rem", { lineHeight: "1.4" }],
+        "2xl": ["1.728rem", { lineHeight: "1.3" }],
+        "3xl": ["2.074rem", { lineHeight: "1.2" }],
+        "4xl": ["2.488rem", { lineHeight: "1.1" }],
+        "5xl": ["2.986rem", { lineHeight: "1.1" }],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -57,6 +71,12 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        // LOQATR brand colors
+        midnight: "hsl(var(--midnight))",
+        "egg-blue": "hsl(var(--egg-blue))",
+        woodsmoke: "hsl(var(--woodsmoke))",
+        chicago: "hsl(var(--chicago))",
+        gunsmoke: "hsl(var(--gunsmoke))",
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -65,20 +85,12 @@ export default {
       },
       keyframes: {
         "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
-          },
-          to: {
-            height: "0",
-          },
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
         },
       },
       animation: {
