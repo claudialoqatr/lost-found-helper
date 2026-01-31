@@ -5,6 +5,13 @@ import { LogOut, Tag, MessageSquare, LayoutDashboard } from "lucide-react";
 
 const Index = () => {
   const { user, loading, signOut } = useAuth();
+  const devBypass = localStorage.getItem("dev_bypass") === "true";
+  const isAuthenticated = user || devBypass;
+
+  const handleSignOut = () => {
+    localStorage.removeItem("dev_bypass");
+    signOut();
+  };
 
   if (loading) {
     return (
@@ -26,12 +33,12 @@ const Index = () => {
         <header className="border-b border-border/50 bg-background/80 backdrop-blur-sm">
           <div className="container mx-auto px-4 py-4 flex justify-between items-center">
             <h1 className="text-2xl font-bold gradient-loqatr-text">LOQATR</h1>
-            {user ? (
+            {isAuthenticated ? (
               <div className="flex items-center gap-4">
                 <span className="text-sm text-muted-foreground hidden sm:inline">
-                  {user.email}
+                  {devBypass ? "🔧 Dev Mode" : user?.email}
                 </span>
-                <Button variant="ghost" size="sm" onClick={signOut}>
+                <Button variant="ghost" size="sm" onClick={handleSignOut}>
                   <LogOut className="h-4 w-4 mr-2" />
                   Sign out
                 </Button>
@@ -46,7 +53,7 @@ const Index = () => {
 
         {/* Main Content */}
         <main className="container mx-auto px-4 py-12">
-          {user ? (
+          {isAuthenticated ? (
             <div className="space-y-8">
               <div className="text-center space-y-2">
                 <h2 className="text-3xl font-bold">Welcome back!</h2>
