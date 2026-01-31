@@ -1,0 +1,536 @@
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { ArrowLeft, Plus, Trash2, Info } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+
+interface ItemDetail {
+  id: string;
+  fieldType: string;
+  value: string;
+}
+
+interface UserProfile {
+  id: number;
+  name: string;
+  email: string;
+  phone: string | null;
+}
+
+interface QRCodeData {
+  id: number;
+  loqatr_id: string;
+  is_public: boolean;
+  item_id: number | null;
+  assigned_to: number | null;
+}
+
+interface ItemData {
+  id: number;
+  name: string;
+  description: string | null;
+}
+
+const FIELD_TYPES = [
+  "Emergency contact",
+  "Return address",
+  "Reward offer",
+  "Medical info",
+  "Pet info",
+  "Other",
+];
+
+export default function ClaimTagPage() {
+  const { code } = useParams<{ code: string }>();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const { user } = useAuth();
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [qrCode, setQRCode] = useState<QRCodeData | null>(null);
+  const [existingItem, setExistingItem] = useState<ItemData | null>(null);
+
+  // Form state
+  const [itemName, setItemName] = useState("");
+  const [isPublic, setIsPublic] = useState(true);
+  const [description, setDescription] = useState("");
+  const [itemDetails, setItemDetails] = useState<ItemDetail[]>([]);
+
+  // Dev bypass check
+  const devBypass = localStorage.getItem("dev_bypass") === "true";
+  const isAuthenticated = user || devBypass;
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      // Store the intended destination and redirect to auth
+      sessionStorage.setItem("redirect_after_auth", `/tag/${code}`);
+      navigate("/auth");
+      return;
+    }
+
+    fetchData();
+  }, [code, isAuthenticated]);
+
+  const fetchData = async () => {
+    if (!code) return;
+
+    setLoading(true);
+    try {
+      // Fetch QR code by loqatr_id
+      const { data: qrData, error: qrError } = await supabase
+        .from("qrcodes")
+        .select("*")
+        .eq("loqatr_id", code)
+        .maybeSingle();
+
+      if (qrError) throw qrError;
+
+      if (!qrData) {
+        toast({
+          title: "QR Code not found",
+          description: "This QR code doesn't exist in our system.",
+          variant: "destructive",
+        });
+        navigate("/");
+        return;
+      }
+
+      setQRCode(qrData);
+      setIsPublic(qrData.is_public);
+
+      // Fetch user profile
+      if (user) {
+        const { data: profileData, error: profileError } = await supabase
+          .from("users")
+          .select("*")
+          .eq("auth_id", user.id)
+          .maybeSingle();
+
+        if (profileError) throw profileError;
+        setUserProfile(profileData);
+      } else if (devBypass) {
+        // Mock profile for dev mode
+        setUserProfile({
+          id: 1,
+          name: "Dev User",
+          email: "dev@loqatr.com",
+          phone: "0123456789",
+        });
+      }
+
+      // If there's an existing item, fetch it
+      if (qrData.item_id) {
+        const { data: itemData, error: itemError } = await supabase
+          .from("items")
+          .select("*")
+          .eq("id", qrData.item_id)
+          .maybeSingle();
+
+        if (itemError) throw itemError;
+        if (itemData) {
+          setExistingItem(itemData);
+          setItemName(itemData.name);
+          setDescription(itemData.description || "");
+
+          // Fetch item details
+          const { data: detailsData } = await supabase
+            .from("item_details")
+            .select("*, item_detail_fields(*)")
+            .eq("item_id", itemData.id);
+
+          if (detailsData) {
+            setItemDetails(
+              detailsData.map((d) => ({
+                id: crypto.randomUUID(),
+                fieldType: d.item_detail_fields?.type || "Other",
+                value: d.value,
+              }))
+            );
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load QR code data.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addDetail = () => {
+    setItemDetails([
+      ...itemDetails,
+      { id: crypto.randomUUID(), fieldType: "Emergency contact", value: "" },
+    ]);
+  };
+
+  const removeDetail = (id: string) => {
+    setItemDetails(itemDetails.filter((d) => d.id !== id));
+  };
+
+  const updateDetail = (id: string, field: "fieldType" | "value", value: string) => {
+    setItemDetails(
+      itemDetails.map((d) => (d.id === id ? { ...d, [field]: value } : d))
+    );
+  };
+
+  const handleSubmit = async () => {
+    if (!itemName.trim()) {
+      toast({
+        title: "Item name required",
+        description: "Please enter a name for your item.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!qrCode || !userProfile) return;
+
+    setSaving(true);
+    try {
+      let itemId = existingItem?.id;
+
+      if (existingItem) {
+        // Update existing item
+        const { error: updateError } = await supabase
+          .from("items")
+          .update({
+            name: itemName.trim(),
+            description: description.trim() || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingItem.id);
+
+        if (updateError) throw updateError;
+
+        // Delete old details
+        await supabase.from("item_details").delete().eq("item_id", existingItem.id);
+      } else {
+        // Create new item
+        const { data: newItem, error: itemError } = await supabase
+          .from("items")
+          .insert({
+            name: itemName.trim(),
+            description: description.trim() || null,
+          })
+          .select()
+          .single();
+
+        if (itemError) throw itemError;
+        itemId = newItem.id;
+      }
+
+      // Insert item details
+      if (itemDetails.length > 0 && itemId) {
+        // Ensure field types exist
+        for (const detail of itemDetails) {
+          if (!detail.value.trim()) continue;
+
+          // Get or create field type
+          let { data: fieldData } = await supabase
+            .from("item_detail_fields")
+            .select("id")
+            .eq("type", detail.fieldType)
+            .maybeSingle();
+
+          if (!fieldData) {
+            const { data: newField } = await supabase
+              .from("item_detail_fields")
+              .insert({ type: detail.fieldType })
+              .select()
+              .single();
+            fieldData = newField;
+          }
+
+          if (fieldData) {
+            await supabase.from("item_details").insert({
+              item_id: itemId,
+              field_id: fieldData.id,
+              value: detail.value.trim(),
+            });
+          }
+        }
+      }
+
+      // Update QR code
+      const { error: qrError } = await supabase
+        .from("qrcodes")
+        .update({
+          item_id: itemId,
+          assigned_to: userProfile.id,
+          is_public: isPublic,
+          status: "active",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", qrCode.id);
+
+      if (qrError) throw qrError;
+
+      toast({
+        title: existingItem ? "Item updated!" : "Tag claimed!",
+        description: existingItem
+          ? "Your item details have been saved."
+          : "This QR code is now linked to your account.",
+      });
+
+      navigate("/");
+    } catch (error) {
+      console.error("Error saving:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container flex h-16 items-center justify-between px-4">
+          <span className="text-2xl font-bold">
+            loq<span className="text-loqatr-cyan">a</span>tr
+          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground hidden sm:inline">
+              Hey, {userProfile?.name?.split(" ")[0] || "User"}!
+            </span>
+            <Button variant="outline" size="sm" onClick={() => navigate("/")}>
+              Dashboard
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="container max-w-lg mx-auto px-4 py-6 pb-24">
+        {/* Go Back */}
+        <Button
+          variant="outline"
+          size="sm"
+          className="mb-4"
+          onClick={() => navigate(-1)}
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Go Back
+        </Button>
+
+        {/* Title */}
+        <h1 className="text-3xl font-bold mb-2">
+          {existingItem ? "Edit Item" : "Claim This Tag"}
+        </h1>
+        <p className="text-muted-foreground mb-8">
+          Enter your contact details and item information. When your item is found,
+          the finder can scan the QR code to help return it to you.
+        </p>
+
+        {/* Item Name */}
+        <div className="space-y-2 mb-6">
+          <Label htmlFor="itemName">Item Name</Label>
+          <Input
+            id="itemName"
+            placeholder="e.g., Scooter, Laptop, Keys"
+            value={itemName}
+            onChange={(e) => setItemName(e.target.value)}
+            className="text-base"
+          />
+        </div>
+
+        {/* Public/Private Toggle */}
+        <div className="flex items-center gap-4 mb-8">
+          <div className="flex items-center gap-2">
+            <span className={!isPublic ? "font-medium" : "text-muted-foreground"}>
+              Private
+            </span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="max-w-xs">
+                  Private mode hides your contact details. Finders can only send you
+                  a message through our platform.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+
+          <Switch checked={isPublic} onCheckedChange={setIsPublic} />
+
+          <div className="flex items-center gap-2">
+            <span className={isPublic ? "font-medium" : "text-muted-foreground"}>
+              Public
+            </span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="max-w-xs">
+                  Public mode shows your contact details directly to anyone who
+                  scans your QR code.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
+
+        {/* Contact Details Card */}
+        <Card className="mb-8 border-2">
+          <CardContent className="pt-6">
+            <h3 className="font-semibold text-lg mb-4">Your Contact Details</h3>
+
+            <div className="space-y-4">
+              <div>
+                <Label className="text-muted-foreground text-sm">Name</Label>
+                <p className="text-loqatr-midnight font-medium">
+                  {userProfile?.name || "—"}
+                </p>
+              </div>
+
+              <div>
+                <Label className="text-muted-foreground text-sm">Email</Label>
+                <p className="text-loqatr-midnight font-medium">
+                  {userProfile?.email || "—"}
+                </p>
+              </div>
+
+              <div>
+                <Label className="text-muted-foreground text-sm">Phone</Label>
+                <p className="text-loqatr-midnight font-medium">
+                  {userProfile?.phone || "Not set"}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-sm text-muted-foreground italic mt-4 pt-4 border-t">
+              These details will be visible to anyone who scans your QR code when in
+              public mode.
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Item Details */}
+        <div className="mb-8">
+          <h3 className="font-semibold text-lg mb-4">Item Details</h3>
+
+          <div className="space-y-3">
+            {itemDetails.map((detail) => (
+              <div key={detail.id} className="flex items-center gap-2">
+                <Select
+                  value={detail.fieldType}
+                  onValueChange={(v) => updateDetail(detail.id, "fieldType", v)}
+                >
+                  <SelectTrigger className="w-[160px] shrink-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FIELD_TYPES.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Input
+                  placeholder="Value"
+                  value={detail.value}
+                  onChange={(e) => updateDetail(detail.id, "value", e.target.value)}
+                  className="flex-1"
+                />
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-destructive hover:text-destructive shrink-0"
+                  onClick={() => removeDetail(detail.id)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+
+          <Button
+            variant="outline"
+            className="mt-4"
+            onClick={addDetail}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add new detail
+          </Button>
+        </div>
+
+        {/* Description */}
+        <div className="space-y-2 mb-8">
+          <Label htmlFor="description">Description</Label>
+          <Textarea
+            id="description"
+            placeholder="Any additional information for the finder..."
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={4}
+            className="resize-none"
+          />
+        </div>
+
+        {/* Submit Button */}
+        <Button
+          className="w-full gradient-loqatr text-white font-semibold h-12 text-base"
+          onClick={handleSubmit}
+          disabled={saving}
+        >
+          {saving
+            ? "Saving..."
+            : existingItem
+            ? "Update QR Code Item"
+            : "Claim This Tag"}
+        </Button>
+
+        {/* Loqatr ID */}
+        {qrCode && (
+          <Card className="mt-8 border-2">
+            <CardContent className="pt-6">
+              <h3 className="font-semibold">Loqatr ID</h3>
+              <p className="text-loqatr-midnight font-mono text-lg">
+                {qrCode.loqatr_id}
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Footer */}
+        <p className="text-center text-sm text-muted-foreground mt-8">
+          Powered by <span className="font-semibold">Waterfall Digital</span>
+        </p>
+      </main>
+    </div>
+  );
+}
