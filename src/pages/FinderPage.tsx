@@ -352,7 +352,7 @@ export default function FinderPage() {
         </header>
 
         {/* Main Content */}
-        <main className="container mx-auto px-4 py-8 max-w-lg">
+        <main className="container mx-auto px-4 py-8 max-w-2xl">
           {/* Hero Section */}
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold mb-3">
@@ -409,43 +409,59 @@ export default function FinderPage() {
           {/* Contact Section */}
           {qrCode?.is_public ? (
             /* PUBLIC MODE - Direct contact options */
-            <Card className="gradient-loqatr text-primary-foreground">
-              <CardContent className="pt-6">
-                <h2 className="font-semibold text-lg mb-4 text-center">Contact Owner</h2>
-                <div className="space-y-3">
-                  {owner?.phone && (
-                    <>
-                      <Button
-                        variant="secondary"
-                        className="w-full h-12 text-base"
-                        onClick={() => window.open(getPhoneLink()!, "_blank")}
-                      >
-                        <Phone className="h-5 w-5 mr-2" />
-                        Call
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        className="w-full h-12 text-base"
-                        onClick={() => window.open(getWhatsAppLink()!, "_blank")}
-                      >
-                        <MessageCircle className="h-5 w-5 mr-2" />
-                        WhatsApp
-                      </Button>
-                    </>
-                  )}
-                  {owner?.email && (
-                    <Button
-                      variant="secondary"
-                      className="w-full h-12 text-base"
-                      onClick={() => window.open(getEmailLink()!, "_blank")}
-                    >
-                      <Mail className="h-5 w-5 mr-2" />
-                      Email
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            <div className="space-y-4">
+              <h2 className="font-bold text-xl text-center">Contact {getOwnerFirstName()}</h2>
+              <p className="text-center text-muted-foreground text-sm mb-6">
+                Choose how you'd like to reach out to the owner
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {owner?.phone && (
+                  <Card 
+                    className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02] border-2 hover:border-primary"
+                    onClick={() => window.open(getPhoneLink()!, "_blank")}
+                  >
+                    <CardContent className="pt-6 pb-6 flex flex-col items-center text-center">
+                      <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mb-4">
+                        <Phone className="h-8 w-8 text-green-600" />
+                      </div>
+                      <h3 className="font-semibold text-lg mb-1">Call</h3>
+                      <p className="text-sm text-muted-foreground">Speak directly with {getOwnerFirstName()}</p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {owner?.phone && (
+                  <Card 
+                    className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02] border-2 hover:border-primary"
+                    onClick={() => window.open(getWhatsAppLink()!, "_blank")}
+                  >
+                    <CardContent className="pt-6 pb-6 flex flex-col items-center text-center">
+                      <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mb-4">
+                        <MessageCircle className="h-8 w-8 text-emerald-600" />
+                      </div>
+                      <h3 className="font-semibold text-lg mb-1">WhatsApp</h3>
+                      <p className="text-sm text-muted-foreground">Send a quick message</p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {owner?.email && (
+                  <Card 
+                    className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02] border-2 hover:border-primary"
+                    onClick={() => window.open(getEmailLink()!, "_blank")}
+                  >
+                    <CardContent className="pt-6 pb-6 flex flex-col items-center text-center">
+                      <div className="w-16 h-16 rounded-full bg-blue-500/10 flex items-center justify-center mb-4">
+                        <Mail className="h-8 w-8 text-blue-600" />
+                      </div>
+                      <h3 className="font-semibold text-lg mb-1">Email</h3>
+                      <p className="text-sm text-muted-foreground">Send a detailed message</p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </div>
           ) : (
             /* PRIVATE MODE - Anonymous messaging */
             <Card>
