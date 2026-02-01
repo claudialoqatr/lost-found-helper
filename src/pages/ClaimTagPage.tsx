@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Trash2, Info } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Info, Unlink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { UnassignTagDialog } from "@/components/UnassignTagDialog";
 
 interface ItemDetail {
   id: string;
@@ -57,6 +58,8 @@ export default function ClaimTagPage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [unassigning, setUnassigning] = useState(false);
+  const [showUnassignDialog, setShowUnassignDialog] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [qrCode, setQRCode] = useState<QRCodeData | null>(null);
   const [existingItem, setExistingItem] = useState<ItemData | null>(null);
@@ -316,6 +319,52 @@ export default function ClaimTagPage() {
     }
   };
 
+  const handleUnassign = async () => {
+    if (!qrCode) return;
+
+    setUnassigning(true);
+    try {
+      // Delete item details if there's an item
+      if (qrCode.item_id) {
+        await supabase.from("item_details").delete().eq("item_id", qrCode.item_id);
+        
+        // Delete the item
+        await supabase.from("items").delete().eq("id", qrCode.item_id);
+      }
+
+      // Reset the QR code - clear assignment, item, and set back to unassigned status
+      const { error: qrError } = await supabase
+        .from("qrcodes")
+        .update({
+          assigned_to: null,
+          item_id: null,
+          is_public: false,
+          status: "unassigned",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", qrCode.id);
+
+      if (qrError) throw qrError;
+
+      toast({
+        title: "Tag unassigned",
+        description: "The tag has been cleared and is ready to be claimed again.",
+      });
+
+      setShowUnassignDialog(false);
+      navigate("/my-tags");
+    } catch (error) {
+      console.error("Error unassigning:", error);
+      toast({
+        title: "Error",
+        description: "Failed to unassign tag. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUnassigning(false);
+    }
+  };
+
   if (loading || authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -494,7 +543,7 @@ export default function ClaimTagPage() {
                 </div>
 
                 {/* Submit Button - visible on mobile */}
-                <div className="lg:hidden">
+                <div className="lg:hidden space-y-3">
                   <Button
                     className="w-full gradient-loqatr text-white font-semibold h-12 text-base"
                     onClick={handleSubmit}
@@ -506,6 +555,18 @@ export default function ClaimTagPage() {
                       ? "Update QR Code Item"
                       : "Claim This Tag"}
                   </Button>
+                  
+                  {/* Unassign Button - only show if user owns this tag */}
+                  {existingItem && (
+                    <Button
+                      variant="outline"
+                      className="w-full border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => setShowUnassignDialog(true)}
+                    >
+                      <Unlink className="h-4 w-4 mr-2" />
+                      Unassign Tag
+                    </Button>
+                  )}
                 </div>
               </div>
 
@@ -559,7 +620,7 @@ export default function ClaimTagPage() {
                 )}
 
                 {/* Submit Button - visible on desktop */}
-                <div className="hidden lg:block">
+                <div className="hidden lg:block space-y-3">
                   <Button
                     className="w-full gradient-loqatr text-white font-semibold h-12 text-base"
                     onClick={handleSubmit}
@@ -571,6 +632,18 @@ export default function ClaimTagPage() {
                       ? "Update QR Code Item"
                       : "Claim This Tag"}
                   </Button>
+                  
+                  {/* Unassign Button - only show if user owns this tag */}
+                  {existingItem && (
+                    <Button
+                      variant="outline"
+                      className="w-full border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => setShowUnassignDialog(true)}
+                    >
+                      <Unlink className="h-4 w-4 mr-2" />
+                      Unassign Tag
+                    </Button>
+                  )}
                 </div>
 
               </div>
@@ -578,6 +651,15 @@ export default function ClaimTagPage() {
           </div>
         </main>
       </div>
+
+      {/* Unassign Confirmation Dialog */}
+      <UnassignTagDialog
+        open={showUnassignDialog}
+        onOpenChange={setShowUnassignDialog}
+        onConfirm={handleUnassign}
+        isLoading={unassigning}
+        tagId={qrCode?.loqatr_id}
+      />
     </div>
   );
 }

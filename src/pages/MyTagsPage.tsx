@@ -7,8 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tag, Package, QrCode, Clock, CheckCircle } from "lucide-react";
+import { Tag, Package, QrCode, Clock, CheckCircle, Unlink } from "lucide-react";
 import { format } from "date-fns";
+import { UnassignTagDialog } from "@/components/UnassignTagDialog";
+import { useToast } from "@/hooks/use-toast";
 
 interface TagWithItem {
   id: number;
@@ -27,9 +29,13 @@ interface TagWithItem {
 export default function MyTagsPage() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [tags, setTags] = useState<TagWithItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [unassigning, setUnassigning] = useState(false);
+  const [showUnassignDialog, setShowUnassignDialog] = useState(false);
+  const [tagToUnassign, setTagToUnassign] = useState<TagWithItem | null>(null);
 
   // Check for dev bypass
   const devBypass = localStorage.getItem("dev_bypass") === "true";
@@ -126,6 +132,61 @@ export default function MyTagsPage() {
     }
   };
 
+  const handleUnassignClick = (e: React.MouseEvent, tag: TagWithItem) => {
+    e.stopPropagation(); // Prevent navigation to tag page
+    setTagToUnassign(tag);
+    setShowUnassignDialog(true);
+  };
+
+  const handleUnassign = async () => {
+    if (!tagToUnassign) return;
+
+    setUnassigning(true);
+    try {
+      // Delete item details if there's an item
+      if (tagToUnassign.item?.id) {
+        await supabase.from("item_details").delete().eq("item_id", tagToUnassign.item.id);
+        
+        // Delete the item
+        await supabase.from("items").delete().eq("id", tagToUnassign.item.id);
+      }
+
+      // Reset the QR code
+      const { error: qrError } = await supabase
+        .from("qrcodes")
+        .update({
+          assigned_to: null,
+          item_id: null,
+          is_public: false,
+          status: "unassigned",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", tagToUnassign.id);
+
+      if (qrError) throw qrError;
+
+      // Remove from local state
+      setTags(tags.filter(t => t.id !== tagToUnassign.id));
+
+      toast({
+        title: "Tag unassigned",
+        description: "The tag has been cleared and is ready to be claimed again.",
+      });
+
+      setShowUnassignDialog(false);
+      setTagToUnassign(null);
+    } catch (error) {
+      console.error("Error unassigning:", error);
+      toast({
+        title: "Error",
+        description: "Failed to unassign tag. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUnassigning(false);
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <AppLayout>
@@ -219,13 +280,21 @@ export default function MyTagsPage() {
                       </p>
                     )}
                     
-                    <div className="flex items-center pt-2 border-t border-border/50">
+                    <div className="flex items-center justify-between pt-2 border-t border-border/50">
                       <span className="text-xs text-muted-foreground">
                         {tag.last_scanned_at 
                           ? `Last scanned ${format(new Date(tag.last_scanned_at), "MMM d, yyyy")}`
                           : "Never scanned"
                         }
                       </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10 -mr-2"
+                        onClick={(e) => handleUnassignClick(e, tag)}
+                      >
+                        <Unlink className="h-4 w-4" />
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -233,6 +302,15 @@ export default function MyTagsPage() {
             </div>
           )}
         </div>
+
+        {/* Unassign Confirmation Dialog */}
+        <UnassignTagDialog
+          open={showUnassignDialog}
+          onOpenChange={setShowUnassignDialog}
+          onConfirm={handleUnassign}
+          isLoading={unassigning}
+          tagId={tagToUnassign?.loqatr_id}
+        />
       </AppLayout>
     );
   }
