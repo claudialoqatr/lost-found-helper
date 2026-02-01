@@ -166,15 +166,18 @@ export default function FinderPage() {
         }
       }
 
-      // Fetch owner info
-      const { data: ownerData, error: ownerError } = await supabase
-        .from("users")
-        .select("id, name, email, phone")
-        .eq("id", qrData.assigned_to)
-        .maybeSingle();
+      // Fetch owner info only for public QR codes
+      if (qrData.is_public) {
+        const { data: ownerData, error: ownerError } = await supabase
+          .from("users")
+          .select("id, name, email, phone")
+          .eq("id", qrData.assigned_to)
+          .maybeSingle();
 
-      if (ownerError) throw ownerError;
-      setOwner(ownerData);
+        if (ownerError) throw ownerError;
+        setOwner(ownerData);
+      }
+      // For private QR codes, owner remains null - contact cards won't render
 
       // Fetch item info
       if (qrData.item_id) {
