@@ -80,15 +80,76 @@ export default function ClaimTagPage() {
     // Wait for auth to finish loading before checking authentication
     if (authLoading) return;
 
-    if (!isAuthenticated) {
-      // Store the intended destination and redirect to auth
-      sessionStorage.setItem("redirect_after_auth", `/tag/${code}`);
-      navigate("/auth");
-      return;
-    }
-
-    fetchData();
+    // Check if the tag is assigned before requiring authentication
+    // This allows unauthenticated users to be redirected to FinderPage for assigned tags
+    checkTagAndFetch();
   }, [code, isAuthenticated, authLoading]);
+
+  const checkTagAndFetch = async () => {
+    if (!code) return;
+
+    try {
+      // First, fetch the QR code to check its status
+      const { data: qrData, error: qrError } = await supabase
+        .from("qrcodes")
+        .select("id, loqatr_id, is_public, item_id, assigned_to, status")
+        .eq("loqatr_id", code)
+        .maybeSingle();
+
+      if (qrError) throw qrError;
+
+      if (!qrData) {
+        toast({
+          title: "QR Code not found",
+          description: "This QR code doesn't exist in our system.",
+          variant: "destructive",
+        });
+        navigate("/");
+        return;
+      }
+
+      // If the tag is assigned and active, check if user is the owner
+      if (qrData.assigned_to && qrData.status === "active") {
+        if (!isAuthenticated) {
+          // Unauthenticated user viewing an assigned tag - redirect to finder page
+          navigate(`/found/${code}`);
+          return;
+        }
+
+        // Check if current user is the owner
+        let currentUserId: number | null = null;
+        if (user) {
+          const { data: profileData } = await supabase
+            .from("users")
+            .select("id")
+            .eq("auth_id", user.id)
+            .maybeSingle();
+          currentUserId = profileData?.id || null;
+        } else if (devBypass) {
+          currentUserId = 1;
+        }
+
+        if (currentUserId !== qrData.assigned_to) {
+          // Not the owner - redirect to finder page
+          navigate(`/found/${code}`);
+          return;
+        }
+      } else {
+        // Tag is not assigned - require authentication to claim
+        if (!isAuthenticated) {
+          sessionStorage.setItem("redirect_after_auth", `/tag/${code}`);
+          navigate("/auth");
+          return;
+        }
+      }
+
+      // User is authenticated and either owns the tag or tag is unclaimed - proceed with full fetch
+      fetchData();
+    } catch (error) {
+      console.error("Error checking tag:", error);
+      setLoading(false);
+    }
+  };
 
   const fetchData = async () => {
     if (!code) return;
@@ -118,7 +179,6 @@ export default function ClaimTagPage() {
       setIsPublic(qrData.is_public);
 
       // Fetch user profile
-      let currentUserProfile: UserProfile | null = null;
       if (user) {
         const { data: profileData, error: profileError } = await supabase
           .from("users")
@@ -127,26 +187,15 @@ export default function ClaimTagPage() {
           .maybeSingle();
 
         if (profileError) throw profileError;
-        currentUserProfile = profileData;
         setUserProfile(profileData);
       } else if (devBypass) {
         // Mock profile for dev mode
-        currentUserProfile = {
+        setUserProfile({
           id: 1,
           name: "Dev User",
           email: "dev@loqatr.com",
           phone: "0123456789",
-        };
-        setUserProfile(currentUserProfile);
-      }
-
-      // If QR is claimed by someone else, redirect to finder page
-      if (qrData.assigned_to && qrData.status === "active") {
-        const isOwner = currentUserProfile?.id === qrData.assigned_to;
-        if (!isOwner) {
-          navigate(`/found/${code}`);
-          return;
-        }
+        });
       }
 
       // If there's an existing item, fetch it
