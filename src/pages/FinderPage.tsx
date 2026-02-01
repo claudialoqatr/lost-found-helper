@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { Phone, Mail, MessageCircle, MapPin, Send, CheckCircle, Shield } from "lucide-react";
+import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import logoDark from "@/assets/logo-dark.svg";
+import logoLight from "@/assets/logo-light.svg";
 
 interface OwnerInfo {
   id: number;
@@ -48,6 +51,7 @@ export default function FinderPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { resolvedTheme } = useTheme();
 
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -323,10 +327,14 @@ export default function FinderPage() {
       <div className="relative z-10">
         {/* Header */}
         <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="container flex h-16 items-center justify-between px-4">
-            <span className="text-2xl font-bold">
-              loq<span className="text-loqatr-cyan">a</span>tr
-            </span>
+          <div className="container flex h-20 items-center justify-between px-4">
+            <Link to="/my-tags">
+              <img 
+                src={resolvedTheme === "dark" ? logoLight : logoDark} 
+                alt="LOQATR" 
+                className="h-14 w-auto"
+              />
+            </Link>
             <div className="flex items-center gap-2">
               {!user && (
                 <>
