@@ -188,12 +188,6 @@ export function AppLayout({ children }: AppLayoutProps) {
         {children}
       </main>
 
-      {/* Footer */}
-      <footer className="border-t mt-16 relative z-10">
-        <div className="container mx-auto px-4 py-8 text-center text-sm text-muted-foreground">
-          <p>Powered by <span className="font-semibold">Waterfall Digital</span></p>
-        </div>
-      </footer>
     </div>
   );
 }

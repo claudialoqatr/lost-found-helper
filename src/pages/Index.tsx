@@ -138,12 +138,6 @@ const Index = () => {
           </div>
         </main>
 
-        {/* Footer */}
-        <footer className="border-t mt-16">
-          <div className="container mx-auto px-4 lg:px-8 py-8 text-center text-sm text-muted-foreground">
-            <p>Powered by <span className="font-semibold">Waterfall Digital</span></p>
-          </div>
-        </footer>
       </div>
     </div>
   );
