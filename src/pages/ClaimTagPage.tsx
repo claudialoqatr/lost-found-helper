@@ -110,6 +110,7 @@ export default function ClaimTagPage() {
       setIsPublic(qrData.is_public);
 
       // Fetch user profile
+      let currentUserProfile: UserProfile | null = null;
       if (user) {
         const { data: profileData, error: profileError } = await supabase
           .from("users")
@@ -118,15 +119,26 @@ export default function ClaimTagPage() {
           .maybeSingle();
 
         if (profileError) throw profileError;
+        currentUserProfile = profileData;
         setUserProfile(profileData);
       } else if (devBypass) {
         // Mock profile for dev mode
-        setUserProfile({
+        currentUserProfile = {
           id: 1,
           name: "Dev User",
           email: "dev@loqatr.com",
           phone: "0123456789",
-        });
+        };
+        setUserProfile(currentUserProfile);
+      }
+
+      // If QR is claimed by someone else, redirect to finder page
+      if (qrData.assigned_to && qrData.status === "active") {
+        const isOwner = currentUserProfile?.id === qrData.assigned_to;
+        if (!isOwner) {
+          navigate(`/found/${code}`);
+          return;
+        }
       }
 
       // If there's an existing item, fetch it
