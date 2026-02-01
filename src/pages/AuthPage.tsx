@@ -130,7 +130,7 @@ export default function AuthPage() {
           </CardDescription>
         </CardHeader>
 
-        <CardContent>
+        <CardContent key={isLogin ? 'login' : 'signup'}>
           {isLogin ? (
             <Form {...loginForm}>
               <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-4">
