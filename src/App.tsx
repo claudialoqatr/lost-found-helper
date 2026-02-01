@@ -7,6 +7,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import Index from "./pages/Index";
 import AuthPage from "./pages/AuthPage";
+import QRScanRouter from "./pages/QRScanRouter";
 import ClaimTagPage from "./pages/ClaimTagPage";
 import EditTagPage from "./pages/EditTagPage";
 import FinderPage from "./pages/FinderPage";
@@ -27,6 +28,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<AuthPage />} />
+              <Route path="/qr-codes/:code" element={<QRScanRouter />} />
               <Route path="/tag/:code" element={<ClaimTagPage />} />
               <Route path="/found/:code" element={<FinderPage />} />
               <Route path="/my-tags" element={<MyTagsPage />} />
