@@ -167,15 +167,18 @@ export default function FinderPage() {
         }
       }
 
-      // Fetch owner info
-      const { data: ownerData, error: ownerError } = await supabase
-        .from("users")
-        .select("id, name, email, phone")
-        .eq("id", qrData.assigned_to)
-        .maybeSingle();
+      // Fetch owner info ONLY for public tags (RLS blocks this for private tags for non-owners)
+      if (qrData.is_public) {
+        const { data: ownerData, error: ownerError } = await supabase
+          .from("users")
+          .select("id, name, email, phone")
+          .eq("id", qrData.assigned_to)
+          .maybeSingle();
 
-      if (ownerError) throw ownerError;
-      setOwner(ownerData);
+        if (!ownerError && ownerData) {
+          setOwner(ownerData);
+        }
+      }
 
       // Fetch item info
       if (qrData.item_id) {
