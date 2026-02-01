@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -44,35 +44,29 @@ interface PhoneInputProps {
 }
 
 export function PhoneInput({ value, onChange, placeholder = "Phone number" }: PhoneInputProps) {
-  const [countryCode, setCountryCode] = useState("+27"); // Default to South Africa
+  const [selectedCountry, setSelectedCountry] = useState("ZA"); // Default to South Africa
   const [phoneNumber, setPhoneNumber] = useState("");
+
+  const getDialCode = (countryCode: string) => {
+    return countryCodes.find(c => c.code === countryCode)?.dial || "+27";
+  };
 
   // Try to detect country from browser/timezone on mount
   useEffect(() => {
     try {
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const country = countryCodes.find(c => {
-        // Simple timezone-based detection
-        if (timezone.includes("Johannesburg") || timezone.includes("Africa/")) {
-          return c.code === "ZA";
-        }
-        if (timezone.includes("London") || timezone.includes("Europe/London")) {
-          return c.code === "GB";
-        }
-        if (timezone.includes("America/New_York") || timezone.includes("America/Los_Angeles")) {
-          return c.code === "US";
-        }
-        if (timezone.includes("Sydney") || timezone.includes("Australia/")) {
-          return c.code === "AU";
-        }
-        return false;
-      });
-      if (country) {
-        setCountryCode(country.dial);
+      if (timezone.includes("Johannesburg") || timezone.includes("Africa/")) {
+        setSelectedCountry("ZA");
+      } else if (timezone.includes("London") || timezone.includes("Europe/London")) {
+        setSelectedCountry("GB");
+      } else if (timezone.includes("America/New_York") || timezone.includes("America/Los_Angeles")) {
+        setSelectedCountry("US");
+      } else if (timezone.includes("Sydney") || timezone.includes("Australia/")) {
+        setSelectedCountry("AU");
       }
     } catch {
       // Fallback to South Africa
-      setCountryCode("+27");
+      setSelectedCountry("ZA");
     }
   }, []);
 
@@ -82,21 +76,27 @@ export function PhoneInput({ value, onChange, placeholder = "Phone number" }: Ph
       // Find matching country code
       const matchedCountry = countryCodes.find(c => value.startsWith(c.dial));
       if (matchedCountry) {
-        setCountryCode(matchedCountry.dial);
+        setSelectedCountry(matchedCountry.code);
         setPhoneNumber(value.slice(matchedCountry.dial.length));
       }
     }
   }, []);
 
-  // Update parent value when country code or phone number changes
-  useEffect(() => {
-    const cleanNumber = phoneNumber.replace(/\D/g, "");
+  // Memoize the onChange to prevent infinite loops
+  const updateValue = useCallback((country: string, phone: string) => {
+    const dialCode = getDialCode(country);
+    const cleanNumber = phone.replace(/\D/g, "");
     if (cleanNumber) {
-      onChange(`${countryCode}${cleanNumber}`);
+      onChange(`${dialCode}${cleanNumber}`);
     } else {
       onChange("");
     }
-  }, [countryCode, phoneNumber, onChange]);
+  }, [onChange]);
+
+  // Update parent value when country or phone number changes
+  useEffect(() => {
+    updateValue(selectedCountry, phoneNumber);
+  }, [selectedCountry, phoneNumber, updateValue]);
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     // Only allow digits
@@ -104,15 +104,21 @@ export function PhoneInput({ value, onChange, placeholder = "Phone number" }: Ph
     setPhoneNumber(cleaned);
   };
 
+  const handleCountryChange = (countryCode: string) => {
+    setSelectedCountry(countryCode);
+  };
+
   return (
     <div className="flex gap-2">
-      <Select value={countryCode} onValueChange={setCountryCode}>
+      <Select value={selectedCountry} onValueChange={handleCountryChange}>
         <SelectTrigger className="w-[100px] flex-shrink-0">
-          <SelectValue />
+          <SelectValue>
+            {getDialCode(selectedCountry)} {selectedCountry}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           {countryCodes.map((country) => (
-            <SelectItem key={`${country.code}-${country.dial}`} value={country.dial}>
+            <SelectItem key={country.code} value={country.code}>
               {country.dial} {country.code}
             </SelectItem>
           ))}
