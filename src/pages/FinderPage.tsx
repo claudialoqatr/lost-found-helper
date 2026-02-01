@@ -411,18 +411,18 @@ export default function FinderPage() {
                 Choose how you'd like to reach out to the owner
               </p>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-2 md:gap-4">
                 {owner?.phone && (
                   <Card
                     className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02] border-2 hover:border-primary"
                     onClick={() => window.open(getPhoneLink()!, "_blank")}
                   >
-                    <CardContent className="pt-6 pb-6 flex flex-col items-center text-center">
-                      <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mb-4">
-                        <Phone className="h-8 w-8 text-green-600" />
+                    <CardContent className="p-3 md:pt-6 md:pb-6 flex flex-col items-center text-center">
+                      <div className="w-10 h-10 md:w-16 md:h-16 rounded-full bg-green-500/10 flex items-center justify-center mb-2 md:mb-4">
+                        <Phone className="h-5 w-5 md:h-8 md:w-8 text-green-600" />
                       </div>
-                      <h3 className="font-semibold text-lg mb-1">Call</h3>
-                      <p className="text-sm text-muted-foreground">Speak directly with {getOwnerFirstName()}</p>
+                      <h3 className="font-semibold text-sm md:text-lg mb-0.5 md:mb-1">Call</h3>
+                      <p className="text-xs md:text-sm text-muted-foreground hidden md:block">Speak directly with {getOwnerFirstName()}</p>
                     </CardContent>
                   </Card>
                 )}
@@ -432,12 +432,12 @@ export default function FinderPage() {
                     className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02] border-2 hover:border-primary"
                     onClick={() => window.open(getWhatsAppLink()!, "_blank")}
                   >
-                    <CardContent className="pt-6 pb-6 flex flex-col items-center text-center">
-                      <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mb-4">
-                        <MessageCircle className="h-8 w-8 text-emerald-600" />
+                    <CardContent className="p-3 md:pt-6 md:pb-6 flex flex-col items-center text-center">
+                      <div className="w-10 h-10 md:w-16 md:h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mb-2 md:mb-4">
+                        <MessageCircle className="h-5 w-5 md:h-8 md:w-8 text-emerald-600" />
                       </div>
-                      <h3 className="font-semibold text-lg mb-1">WhatsApp</h3>
-                      <p className="text-sm text-muted-foreground">Send a quick message</p>
+                      <h3 className="font-semibold text-sm md:text-lg mb-0.5 md:mb-1">WhatsApp</h3>
+                      <p className="text-xs md:text-sm text-muted-foreground hidden md:block">Send a quick message</p>
                     </CardContent>
                   </Card>
                 )}
@@ -447,12 +447,12 @@ export default function FinderPage() {
                     className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02] border-2 hover:border-primary"
                     onClick={() => window.open(getEmailLink()!, "_blank")}
                   >
-                    <CardContent className="pt-6 pb-6 flex flex-col items-center text-center">
-                      <div className="w-16 h-16 rounded-full bg-blue-500/10 flex items-center justify-center mb-4">
-                        <Mail className="h-8 w-8 text-blue-600" />
+                    <CardContent className="p-3 md:pt-6 md:pb-6 flex flex-col items-center text-center">
+                      <div className="w-10 h-10 md:w-16 md:h-16 rounded-full bg-blue-500/10 flex items-center justify-center mb-2 md:mb-4">
+                        <Mail className="h-5 w-5 md:h-8 md:w-8 text-blue-600" />
                       </div>
-                      <h3 className="font-semibold text-lg mb-1">Email</h3>
-                      <p className="text-sm text-muted-foreground">Send a detailed message</p>
+                      <h3 className="font-semibold text-sm md:text-lg mb-0.5 md:mb-1">Email</h3>
+                      <p className="text-xs md:text-sm text-muted-foreground hidden md:block">Send a detailed message</p>
                     </CardContent>
                   </Card>
                 )}
