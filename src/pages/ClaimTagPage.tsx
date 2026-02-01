@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Trash2, Info } from "lucide-react";
+import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -303,39 +304,17 @@ export default function ClaimTagPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">Loading...</div>
-      </div>
+      <AppLayout>
+        <div className="container mx-auto px-4 py-8 flex items-center justify-center min-h-[50vh]">
+          <div className="animate-pulse text-muted-foreground">Loading...</div>
+        </div>
+      </AppLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Gradient background accent */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-1/2 -right-1/2 w-full h-full gradient-loqatr opacity-5 rounded-full blur-3xl" />
-      </div>
-
-      <div className="relative z-10">
-        {/* Header */}
-        <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="container flex h-16 items-center justify-between px-4 lg:px-8">
-            <span className="text-2xl lg:text-3xl font-bold">
-              loq<span className="text-loqatr-cyan">a</span>tr
-            </span>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-muted-foreground hidden md:inline">
-                Hey, {userProfile?.name?.split(" ")[0] || "User"}!
-              </span>
-              <Button variant="outline" size="sm" onClick={() => navigate("/")}>
-                Dashboard
-              </Button>
-            </div>
-          </div>
-        </header>
-
-        {/* Main Content */}
-        <main className="container mx-auto px-4 lg:px-8 py-6 lg:py-12 pb-24">
+    <AppLayout>
+      <div className="container mx-auto px-4 lg:px-8 py-6 lg:py-12 pb-24">
           <div className="max-w-2xl mx-auto lg:max-w-5xl">
             {/* Go Back */}
             <Button variant="outline" size="sm" className="mb-6" onClick={() => navigate(-1)}>
@@ -537,8 +516,7 @@ export default function ClaimTagPage() {
               </div>
             </div>
           </div>
-        </main>
-      </div>
-    </div>
+        </div>
+    </AppLayout>
   );
 }
