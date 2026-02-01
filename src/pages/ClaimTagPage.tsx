@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Trash2, Info } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
+import { ScanHistory } from "@/components/ScanHistory";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -496,6 +497,11 @@ export default function ClaimTagPage() {
                       <p className="text-loqatr-midnight dark:text-accent font-mono text-lg">{qrCode.loqatr_id}</p>
                     </CardContent>
                   </Card>
+                )}
+
+                {/* Scan History - only for existing items */}
+                {existingItem && qrCode && (
+                  <ScanHistory qrCodeId={qrCode.id} />
                 )}
 
                 {/* Submit Button - visible on desktop */}
