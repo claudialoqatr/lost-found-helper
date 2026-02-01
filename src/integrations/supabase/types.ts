@@ -133,6 +133,67 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          created_at: string
+          id: number
+          is_read: boolean
+          location: string | null
+          loqatr_message_id: number | null
+          message: string | null
+          qrcode_id: number | null
+          title: string
+          type: string
+          user_id: number
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          is_read?: boolean
+          location?: string | null
+          loqatr_message_id?: number | null
+          message?: string | null
+          qrcode_id?: number | null
+          title: string
+          type: string
+          user_id: number
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          is_read?: boolean
+          location?: string | null
+          loqatr_message_id?: number | null
+          message?: string | null
+          qrcode_id?: number | null
+          title?: string
+          type?: string
+          user_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_loqatr_message_id_fkey"
+            columns: ["loqatr_message_id"]
+            isOneToOne: false
+            referencedRelation: "loqatrs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_qrcode_id_fkey"
+            columns: ["qrcode_id"]
+            isOneToOne: false
+            referencedRelation: "qrcodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       qrcode_batches: {
         Row: {
           created_at: string | null

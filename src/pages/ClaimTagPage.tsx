@@ -14,6 +14,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { UnassignTagDialog } from "@/components/UnassignTagDialog";
 import { AppLayout } from "@/components/AppLayout";
+import { notifyTagAssigned, notifyTagUnassigned } from "@/lib/notifications";
 
 interface ItemDetail {
   id: string;
@@ -300,6 +301,11 @@ export default function ClaimTagPage() {
 
       if (qrError) throw qrError;
 
+      // Create notification for tag claim (only for new claims, not updates)
+      if (!existingItem && userProfile && itemId) {
+        await notifyTagAssigned(userProfile.id, itemName.trim(), qrCode.id);
+      }
+
       toast({
         title: existingItem ? "Item updated!" : "Tag claimed!",
         description: existingItem
@@ -307,7 +313,7 @@ export default function ClaimTagPage() {
           : "This QR code is now linked to your account.",
       });
 
-      navigate("/");
+      navigate("/my-tags");
     } catch (error) {
       console.error("Error saving:", error);
       toast({
@@ -346,6 +352,11 @@ export default function ClaimTagPage() {
         .eq("id", qrCode.id);
 
       if (qrError) throw qrError;
+
+      // Create notification for unassignment
+      if (userProfile && existingItem) {
+        await notifyTagUnassigned(userProfile.id, existingItem.name);
+      }
 
       toast({
         title: "Tag unassigned",

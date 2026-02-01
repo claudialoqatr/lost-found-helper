@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { notifyTagScanned, notifyMessageReceived } from "@/lib/notifications";
 import logoDark from "@/assets/logo-dark.svg";
 import logoLight from "@/assets/logo-light.svg";
 
@@ -232,6 +233,17 @@ export default function FinderPage() {
 
       if (error) {
         console.error("Failed to record scan:", error);
+        return;
+      }
+
+      // Notify owner that their tag was scanned
+      if (qrCode?.assigned_to && item) {
+        await notifyTagScanned(
+          qrCode.assigned_to,
+          item.name,
+          qrCodeId,
+          location.address
+        );
       }
     } catch (e) {
       console.error("Scan recording error:", e);
@@ -252,15 +264,31 @@ export default function FinderPage() {
 
     setSending(true);
     try {
-      const { error } = await supabase.from("loqatrs").insert({
-        item_id: item.id,
-        name: finderName.trim(),
-        email: finderEmail.trim() || null,
-        phone: finderPhone.trim() || null,
-        message: message.trim() || null,
-      });
+      const { data: loqatrData, error } = await supabase
+        .from("loqatrs")
+        .insert({
+          item_id: item.id,
+          name: finderName.trim(),
+          email: finderEmail.trim() || null,
+          phone: finderPhone.trim() || null,
+          message: message.trim() || null,
+        })
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // Notify owner about the message
+      if (qrCode.assigned_to && loqatrData) {
+        await notifyMessageReceived(
+          qrCode.assigned_to,
+          item.name,
+          finderName.trim(),
+          qrCode.id,
+          loqatrData.id,
+          location.address
+        );
+      }
 
       setMessageSent(true);
       toast({
