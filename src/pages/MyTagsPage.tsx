@@ -11,6 +11,7 @@ import { Tag, Package, QrCode, Clock, CheckCircle, Unlink } from "lucide-react";
 import { format } from "date-fns";
 import { UnassignTagDialog } from "@/components/UnassignTagDialog";
 import { useToast } from "@/hooks/use-toast";
+import { notifyTagUnassigned } from "@/lib/notifications";
 
 interface TagWithItem {
   id: number;
@@ -143,6 +144,8 @@ export default function MyTagsPage() {
 
     setUnassigning(true);
     try {
+      const itemName = tagToUnassign.item?.name || "Unknown item";
+      
       // Delete item details if there's an item
       if (tagToUnassign.item?.id) {
         await supabase.from("item_details").delete().eq("item_id", tagToUnassign.item.id);
@@ -164,6 +167,19 @@ export default function MyTagsPage() {
         .eq("id", tagToUnassign.id);
 
       if (qrError) throw qrError;
+
+      // Get user ID for notification
+      if (user) {
+        const { data: userData } = await supabase
+          .from("users")
+          .select("id")
+          .eq("auth_id", user.id)
+          .single();
+        
+        if (userData?.id) {
+          await notifyTagUnassigned(userData.id, itemName);
+        }
+      }
 
       // Remove from local state
       setTags(tags.filter(t => t.id !== tagToUnassign.id));
