@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { PhoneInput } from "@/components/PhoneInput";
 import { toast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
@@ -18,6 +19,7 @@ const loginSchema = z.object({
 
 const signupSchema = loginSchema.extend({
   name: z.string().min(2, "Name must be at least 2 characters"),
+  phone: z.string().min(10, "Please enter a valid phone number"),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
@@ -40,7 +42,7 @@ export default function AuthPage() {
 
   const signupForm = useForm<SignupFormData>({
     resolver: zodResolver(signupSchema),
-    defaultValues: { email: "", password: "", name: "", confirmPassword: "" },
+    defaultValues: { email: "", password: "", name: "", phone: "", confirmPassword: "" },
   });
 
   // Dev bypass: Ctrl+Shift+D to skip auth
@@ -84,7 +86,7 @@ export default function AuthPage() {
 
   const handleSignup = async (data: SignupFormData) => {
     setIsSubmitting(true);
-    const { error } = await signUp(data.email, data.password, data.name);
+    const { error } = await signUp(data.email, data.password, data.name, data.phone);
     setIsSubmitting(false);
 
     if (error) {
@@ -212,6 +214,23 @@ export default function AuthPage() {
                           type="email" 
                           placeholder="you@example.com" 
                           {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={signupForm.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone Number</FormLabel>
+                      <FormControl>
+                        <PhoneInput 
+                          value={field.value}
+                          onChange={field.onChange}
+                          placeholder="Phone number"
                         />
                       </FormControl>
                       <FormMessage />
