@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Trash2, Info } from "lucide-react";
+import { ArrowLeft, Unlink } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
+import { ScanHistory } from "@/components/ScanHistory";
+import { UnassignTagDialog } from "@/components/UnassignTagDialog";
 import { ItemForm, ItemDetailsEditor, ContactDetailsCard, LoqatrIdCard, type ItemDetail } from "@/components/tag";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { notifyTagUnassigned } from "@/lib/notifications";
 
 interface UserProfile {
   id: number;
@@ -21,10 +24,15 @@ interface QRCodeData {
   is_public: boolean;
   item_id: number | null;
   assigned_to: number | null;
-  status: string;
 }
 
-export default function ClaimTagPage() {
+interface ItemData {
+  id: number;
+  name: string;
+  description: string | null;
+}
+
+export default function EditTagPage() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -34,6 +42,7 @@ export default function ClaimTagPage() {
   const [saving, setSaving] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [qrCode, setQRCode] = useState<QRCodeData | null>(null);
+  const [item, setItem] = useState<ItemData | null>(null);
 
   // Form state
   const [itemName, setItemName] = useState("");
@@ -41,14 +50,17 @@ export default function ClaimTagPage() {
   const [description, setDescription] = useState("");
   const [itemDetails, setItemDetails] = useState<ItemDetail[]>([]);
 
+  // Unassign dialog state
+  const [showUnassignDialog, setShowUnassignDialog] = useState(false);
+  const [unassigning, setUnassigning] = useState(false);
+
   // Dev bypass check
   const devBypass = localStorage.getItem("dev_bypass") === "true";
   const isAuthenticated = user || devBypass;
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      // Store the intended destination and redirect to auth
-      sessionStorage.setItem("redirect_after_auth", `/tag/${code}`);
+      sessionStorage.setItem("redirect_after_auth", `/my-tags/${code}`);
       navigate("/auth");
       return;
     }
@@ -74,11 +86,11 @@ export default function ClaimTagPage() {
 
       if (!qrData) {
         toast({
-          title: "QR Code not found",
+          title: "Tag not found",
           description: "This QR code doesn't exist in our system.",
           variant: "destructive",
         });
-        navigate("/");
+        navigate("/my-tags");
         return;
       }
 
@@ -95,7 +107,6 @@ export default function ClaimTagPage() {
         currentUserProfile = profileData;
         setUserProfile(profileData);
       } else if (devBypass) {
-        // Mock profile for dev mode
         currentUserProfile = {
           id: 1,
           name: "Dev User",
@@ -105,28 +116,59 @@ export default function ClaimTagPage() {
         setUserProfile(currentUserProfile);
       }
 
-      // If QR is claimed by current user, redirect to edit page
-      if (qrData.assigned_to && qrData.status === "active") {
-        const isOwner = currentUserProfile?.id === qrData.assigned_to;
-        if (isOwner) {
-          navigate(`/my-tags/${code}`, { replace: true });
-          return;
-        } else {
-          // Claimed by someone else, redirect to finder page
-          navigate(`/found/${code}`, { replace: true });
-          return;
-        }
+      // If not the owner, redirect
+      if (!currentUserProfile || qrData.assigned_to !== currentUserProfile.id) {
+        toast({
+          title: "Access denied",
+          description: "You don't own this tag.",
+          variant: "destructive",
+        });
+        navigate("/my-tags");
+        return;
       }
 
       setQRCode(qrData);
       setIsPublic(qrData.is_public);
+
+      // Fetch item data
+      if (qrData.item_id) {
+        const { data: itemData, error: itemError } = await supabase
+          .from("items")
+          .select("*")
+          .eq("id", qrData.item_id)
+          .maybeSingle();
+
+        if (itemError) throw itemError;
+        if (itemData) {
+          setItem(itemData);
+          setItemName(itemData.name);
+          setDescription(itemData.description || "");
+
+          // Fetch item details
+          const { data: detailsData } = await supabase
+            .from("item_details")
+            .select("*, item_detail_fields(*)")
+            .eq("item_id", itemData.id);
+
+          if (detailsData) {
+            setItemDetails(
+              detailsData.map((d) => ({
+                id: crypto.randomUUID(),
+                fieldType: d.item_detail_fields?.type || "Other",
+                value: d.value,
+              })),
+            );
+          }
+        }
+      }
     } catch (error) {
       console.error("Error fetching data:", error);
       toast({
         title: "Error",
-        description: "Failed to load QR code data.",
+        description: "Failed to load tag data.",
         variant: "destructive",
       });
+      navigate("/my-tags");
     } finally {
       setLoading(false);
     }
@@ -154,24 +196,27 @@ export default function ClaimTagPage() {
       return;
     }
 
-    if (!qrCode || !userProfile) return;
+    if (!qrCode || !userProfile || !item) return;
 
     setSaving(true);
     try {
-      // Create new item
-      const { data: newItem, error: itemError } = await supabase
+      // Update item
+      const { error: updateError } = await supabase
         .from("items")
-        .insert({
+        .update({
           name: itemName.trim(),
           description: description.trim() || null,
+          updated_at: new Date().toISOString(),
         })
-        .select()
-        .single();
+        .eq("id", item.id);
 
-      if (itemError) throw itemError;
+      if (updateError) throw updateError;
+
+      // Delete old details and insert new ones
+      await supabase.from("item_details").delete().eq("item_id", item.id);
 
       // Insert item details
-      if (itemDetails.length > 0 && newItem) {
+      if (itemDetails.length > 0) {
         for (const detail of itemDetails) {
           if (!detail.value.trim()) continue;
 
@@ -193,7 +238,7 @@ export default function ClaimTagPage() {
 
           if (fieldData) {
             await supabase.from("item_details").insert({
-              item_id: newItem.id,
+              item_id: item.id,
               field_id: fieldData.id,
               value: detail.value.trim(),
             });
@@ -201,14 +246,11 @@ export default function ClaimTagPage() {
         }
       }
 
-      // Update QR code
+      // Update QR code public setting
       const { error: qrError } = await supabase
         .from("qrcodes")
         .update({
-          item_id: newItem.id,
-          assigned_to: userProfile.id,
           is_public: isPublic,
-          status: "active",
           updated_at: new Date().toISOString(),
         })
         .eq("id", qrCode.id);
@@ -216,12 +258,9 @@ export default function ClaimTagPage() {
       if (qrError) throw qrError;
 
       toast({
-        title: "Tag claimed!",
-        description: "This QR code is now linked to your account.",
+        title: "Item updated!",
+        description: "Your item details have been saved.",
       });
-
-      // Redirect to edit page after claiming
-      navigate(`/my-tags/${code}`, { replace: true });
     } catch (error) {
       console.error("Error saving:", error);
       toast({
@@ -231,6 +270,54 @@ export default function ClaimTagPage() {
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleUnassign = async () => {
+    if (!qrCode || !userProfile) return;
+
+    setUnassigning(true);
+    try {
+      const itemNameForNotif = item?.name || "Unknown item";
+
+      // Delete item details if there's an item
+      if (item?.id) {
+        await supabase.from("item_details").delete().eq("item_id", item.id);
+        await supabase.from("items").delete().eq("id", item.id);
+      }
+
+      // Reset the QR code
+      const { error: qrError } = await supabase
+        .from("qrcodes")
+        .update({
+          assigned_to: null,
+          item_id: null,
+          is_public: false,
+          status: "unassigned",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", qrCode.id);
+
+      if (qrError) throw qrError;
+
+      await notifyTagUnassigned(userProfile.id, itemNameForNotif);
+
+      toast({
+        title: "Tag unassigned",
+        description: "The tag has been cleared and is ready to be claimed again.",
+      });
+
+      navigate("/my-tags");
+    } catch (error) {
+      console.error("Error unassigning:", error);
+      toast({
+        title: "Error",
+        description: "Failed to unassign tag. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUnassigning(false);
+      setShowUnassignDialog(false);
     }
   };
 
@@ -249,9 +336,9 @@ export default function ClaimTagPage() {
       <div className="container mx-auto px-4 lg:px-8 py-6 lg:py-12 pb-24">
         <div className="max-w-2xl mx-auto lg:max-w-5xl">
           {/* Go Back */}
-          <Button variant="outline" size="sm" className="mb-6" onClick={() => navigate(-1)}>
+          <Button variant="outline" size="sm" className="mb-6" onClick={() => navigate("/my-tags")}>
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Go Back
+            Back to My Tags
           </Button>
 
           {/* Two column layout on desktop */}
@@ -260,10 +347,9 @@ export default function ClaimTagPage() {
             <div className="space-y-6">
               {/* Title */}
               <div>
-                <h1 className="text-3xl lg:text-4xl font-bold mb-2">Claim This Tag</h1>
+                <h1 className="text-3xl lg:text-4xl font-bold mb-2">Edit Item</h1>
                 <p className="text-muted-foreground lg:text-lg">
-                  Enter any additional info. When your item is found, the finder will see this information along with
-                  your contact info.
+                  Update the information for your tagged item. When found, the finder will see this information.
                 </p>
               </div>
 
@@ -286,18 +372,26 @@ export default function ClaimTagPage() {
               />
 
               {/* Submit Button - visible on mobile */}
-              <div className="lg:hidden">
+              <div className="lg:hidden space-y-3">
                 <Button
                   className="w-full gradient-loqatr text-white font-semibold h-12 text-base"
                   onClick={handleSubmit}
                   disabled={saving}
                 >
-                  {saving ? "Saving..." : "Claim This Tag"}
+                  {saving ? "Saving..." : "Update Item"}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full text-destructive hover:text-destructive"
+                  onClick={() => setShowUnassignDialog(true)}
+                >
+                  <Unlink className="h-4 w-4 mr-2" />
+                  Unassign Tag
                 </Button>
               </div>
             </div>
 
-            {/* Right Column - Contact Details & Actions (Desktop) */}
+            {/* Right Column - Info & Actions (Desktop) */}
             <div className="space-y-6 mt-8 lg:mt-0">
               {/* Contact Details Card */}
               <ContactDetailsCard user={userProfile} />
@@ -305,14 +399,25 @@ export default function ClaimTagPage() {
               {/* Loqatr ID */}
               {qrCode && <LoqatrIdCard loqatrId={qrCode.loqatr_id} />}
 
-              {/* Submit Button - visible on desktop */}
-              <div className="hidden lg:block">
+              {/* Scan History */}
+              {qrCode && <ScanHistory qrCodeId={qrCode.id} />}
+
+              {/* Actions - visible on desktop */}
+              <div className="hidden lg:block space-y-3">
                 <Button
                   className="w-full gradient-loqatr text-white font-semibold h-12 text-base"
                   onClick={handleSubmit}
                   disabled={saving}
                 >
-                  {saving ? "Saving..." : "Claim This Tag"}
+                  {saving ? "Saving..." : "Update Item"}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full text-destructive hover:text-destructive"
+                  onClick={() => setShowUnassignDialog(true)}
+                >
+                  <Unlink className="h-4 w-4 mr-2" />
+                  Unassign Tag
                 </Button>
               </div>
 
@@ -324,6 +429,15 @@ export default function ClaimTagPage() {
           </div>
         </div>
       </div>
+
+      {/* Unassign Confirmation Dialog */}
+      <UnassignTagDialog
+        open={showUnassignDialog}
+        onOpenChange={setShowUnassignDialog}
+        onConfirm={handleUnassign}
+        isLoading={unassigning}
+        tagId={qrCode?.loqatr_id}
+      />
     </AppLayout>
   );
 }

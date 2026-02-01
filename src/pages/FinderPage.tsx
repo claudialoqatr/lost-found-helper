@@ -161,8 +161,8 @@ export default function FinderPage() {
         }
 
         if (currentUserId === qrData.assigned_to) {
-          // Owner is viewing - redirect to edit
-          navigate(`/tag/${code}`);
+          // Owner is viewing - redirect to management page
+          navigate(`/my-tags/${code}`, { replace: true });
           return;
         }
       }

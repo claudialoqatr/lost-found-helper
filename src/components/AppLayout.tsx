@@ -70,7 +70,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         .single();
       
       if (data?.loqatr_id) {
-        navigate(`/tag/${data.loqatr_id}`);
+        navigate(`/my-tags/${data.loqatr_id}`);
       }
     }
   };

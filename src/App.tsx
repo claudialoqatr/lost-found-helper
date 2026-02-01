@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import Index from "./pages/Index";
 import AuthPage from "./pages/AuthPage";
 import ClaimTagPage from "./pages/ClaimTagPage";
+import EditTagPage from "./pages/EditTagPage";
 import FinderPage from "./pages/FinderPage";
 import MyTagsPage from "./pages/MyTagsPage";
 import MessagesPage from "./pages/MessagesPage";
@@ -29,6 +30,7 @@ const App = () => (
               <Route path="/tag/:code" element={<ClaimTagPage />} />
               <Route path="/found/:code" element={<FinderPage />} />
               <Route path="/my-tags" element={<MyTagsPage />} />
+              <Route path="/my-tags/:code" element={<EditTagPage />} />
               <Route path="/messages" element={<MessagesPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
