@@ -573,10 +573,6 @@ export default function ClaimTagPage() {
                   </Button>
                 </div>
 
-                {/* Footer */}
-                <p className="text-center text-sm text-muted-foreground">
-                  Powered by <span className="font-semibold">Waterfall Digital</span>
-                </p>
               </div>
             </div>
           </div>
