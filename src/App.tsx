@@ -9,6 +9,7 @@ import AuthPage from "./pages/AuthPage";
 import ClaimTagPage from "./pages/ClaimTagPage";
 import FinderPage from "./pages/FinderPage";
 import MyTagsPage from "./pages/MyTagsPage";
+import MessagesPage from "./pages/MessagesPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
             <Route path="/tag/:code" element={<ClaimTagPage />} />
             <Route path="/found/:code" element={<FinderPage />} />
             <Route path="/my-tags" element={<MyTagsPage />} />
+            <Route path="/messages" element={<MessagesPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

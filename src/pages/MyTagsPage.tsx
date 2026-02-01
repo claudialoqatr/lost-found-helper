@@ -2,11 +2,12 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Tag, Package, QrCode, ExternalLink, Clock, CheckCircle } from "lucide-react";
+import { Tag, Package, QrCode, ExternalLink, Clock, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 
 interface TagWithItem {
@@ -105,49 +106,33 @@ export default function MyTagsPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-background p-4 md:p-8">
-        <div className="max-w-6xl mx-auto space-y-6">
-          <Skeleton className="h-10 w-48" />
+      <AppLayout>
+        <div className="container mx-auto px-4 py-8">
+          <Skeleton className="h-10 w-48 mb-6" />
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3].map((i) => (
               <Skeleton key={i} className="h-48 rounded-lg" />
             ))}
           </div>
         </div>
-      </div>
+      </AppLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Background accents */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-1/2 -right-1/2 w-full h-full gradient-loqatr opacity-5 rounded-full blur-3xl" />
-        <div className="absolute -bottom-1/2 -left-1/2 w-full h-full gradient-loqatr opacity-5 rounded-full blur-3xl" />
-      </div>
-
-      <div className="relative z-10 p-4 md:p-8">
-        <div className="max-w-6xl mx-auto">
-          {/* Header */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" asChild>
-                <Link to="/">
-                  <ArrowLeft className="h-5 w-5" />
-                </Link>
-              </Button>
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold">My Tags</h1>
-                <p className="text-muted-foreground">Manage your claimed QR tags and items</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-sm">
-                <Tag className="w-3 h-3 mr-1" />
-                {tags.length} {tags.length === 1 ? "tag" : "tags"}
-              </Badge>
-            </div>
+    <AppLayout>
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold">My Tags</h1>
+            <p className="text-muted-foreground">Manage your claimed QR tags and items</p>
           </div>
+          <Badge variant="outline" className="w-fit">
+            <Tag className="w-3 h-3 mr-1" />
+            {tags.length} {tags.length === 1 ? "tag" : "tags"}
+          </Badge>
+        </div>
 
           {/* Error state */}
           {error && (
@@ -227,7 +212,6 @@ export default function MyTagsPage() {
             </div>
           )}
         </div>
-      </div>
-    </div>
-  );
-}
+      </AppLayout>
+    );
+  }
