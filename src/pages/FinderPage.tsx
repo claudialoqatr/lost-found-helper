@@ -71,7 +71,7 @@ export default function FinderPage() {
   // Get finder's location
   const getLocation = useCallback(async () => {
     setLocationLoading(true);
-    
+
     if (!navigator.geolocation) {
       setLocationLoading(false);
       return;
@@ -80,12 +80,12 @@ export default function FinderPage() {
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
-        
+
         // Try to get address from coordinates using a free geocoding API
         let address = null;
         try {
           const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
           );
           const data = await response.json();
           address = data.display_name || null;
@@ -100,7 +100,7 @@ export default function FinderPage() {
         console.log("Location error:", error);
         setLocationLoading(false);
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 10000 },
     );
   }, []);
 
@@ -147,13 +147,9 @@ export default function FinderPage() {
       // Check if current user is owner
       if (user || devBypass) {
         let currentUserId: number | null = null;
-        
+
         if (user) {
-          const { data: profileData } = await supabase
-            .from("users")
-            .select("id")
-            .eq("auth_id", user.id)
-            .maybeSingle();
+          const { data: profileData } = await supabase.from("users").select("id").eq("auth_id", user.id).maybeSingle();
           currentUserId = profileData?.id || null;
         } else if (devBypass) {
           currentUserId = 1; // Mock dev user
@@ -166,18 +162,15 @@ export default function FinderPage() {
         }
       }
 
-      // Fetch owner info only for public QR codes
-      if (qrData.is_public) {
-        const { data: ownerData, error: ownerError } = await supabase
-          .from("users")
-          .select("id, name, email, phone")
-          .eq("id", qrData.assigned_to)
-          .maybeSingle();
+      // Fetch owner info
+      const { data: ownerData, error: ownerError } = await supabase
+        .from("users")
+        .select("id, name, email, phone")
+        .eq("id", qrData.assigned_to)
+        .maybeSingle();
 
-        if (ownerError) throw ownerError;
-        setOwner(ownerData);
-      }
-      // For private QR codes, owner remains null - contact cards won't render
+      if (ownerError) throw ownerError;
+      setOwner(ownerData);
 
       // Fetch item info
       if (qrData.item_id) {
@@ -201,14 +194,13 @@ export default function FinderPage() {
             detailsData.map((d) => ({
               type: d.item_detail_fields?.type || "Info",
               value: d.value,
-            }))
+            })),
           );
         }
       }
 
       // Record the scan
       await recordScan(qrData.id);
-
     } catch (error) {
       console.error("Error fetching data:", error);
       toast({
@@ -224,8 +216,8 @@ export default function FinderPage() {
   const recordScan = async (qrCodeId: number) => {
     try {
       // Wait briefly for location if still loading
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       const { error } = await supabase.from("scans").insert({
         qr_code_id: qrCodeId,
         latitude: location.latitude,
@@ -291,23 +283,19 @@ export default function FinderPage() {
   const getWhatsAppLink = () => {
     if (!owner?.phone) return null;
     const cleanPhone = owner.phone.replace(/\D/g, "");
-    const locationText = location.address
-      ? `\n\n📍 Found at: ${location.address}`
-      : "";
+    const locationText = location.address ? `\n\n Found at: ${location.address}` : "";
     const itemMessage = encodeURIComponent(
-      `Hi ${getOwnerFirstName()}! I found your ${item?.name || "item"} tagged with Loqatr.${locationText}`
+      `Hi ${getOwnerFirstName()}! I found your ${item?.name || "item"} tagged with Loqatr.${locationText}`,
     );
     return `https://wa.me/${cleanPhone}?text=${itemMessage}`;
   };
 
   const getEmailLink = () => {
     if (!owner?.email) return null;
-    const locationText = location.address
-      ? `\n\nFound at: ${location.address}`
-      : "";
+    const locationText = location.address ? `\n\nFound at: ${location.address}` : "";
     const subject = encodeURIComponent(`Found: ${item?.name || "Your Item"}`);
     const body = encodeURIComponent(
-      `Hi ${getOwnerFirstName()},\n\nI found your ${item?.name || "item"} tagged with Loqatr.${locationText}\n\nPlease let me know how I can return it to you.`
+      `Hi ${getOwnerFirstName()},\n\nI found your ${item?.name || "item"} tagged with Loqatr.${locationText}\n\nPlease let me know how I can return it to you.`,
     );
     return `mailto:${owner.email}?subject=${subject}&body=${body}`;
   };
@@ -345,7 +333,11 @@ export default function FinderPage() {
                   <Button variant="outline" size="sm" onClick={() => navigate("/auth")}>
                     Sign in
                   </Button>
-                  <Button size="sm" className="gradient-loqatr text-primary-foreground" onClick={() => navigate("/auth")}>
+                  <Button
+                    size="sm"
+                    className="gradient-loqatr text-primary-foreground"
+                    onClick={() => navigate("/auth")}
+                  >
                     Sign up
                   </Button>
                 </>
@@ -366,7 +358,8 @@ export default function FinderPage() {
               {item?.name || "Item"}!
             </h1>
             <p className="text-muted-foreground">
-              Thank you for being awesome! {qrCode?.is_public
+              Thank you for being awesome!{" "}
+              {qrCode?.is_public
                 ? "You can reach out to the owner directly below or send them a notification through our app."
                 : "You can send the owner a message through our secure platform."}
             </p>
@@ -376,7 +369,7 @@ export default function FinderPage() {
           <Card className="mb-6">
             <CardContent className="pt-6">
               <h2 className="font-semibold text-lg mb-4">Item Details:</h2>
-              
+
               {itemDetails.length > 0 ? (
                 <div className="space-y-3">
                   {itemDetails.map((detail, index) => (
@@ -417,10 +410,10 @@ export default function FinderPage() {
               <p className="text-center text-muted-foreground text-sm mb-6">
                 Choose how you'd like to reach out to the owner
               </p>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {owner?.phone && (
-                  <Card 
+                  <Card
                     className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02] border-2 hover:border-primary"
                     onClick={() => window.open(getPhoneLink()!, "_blank")}
                   >
@@ -435,7 +428,7 @@ export default function FinderPage() {
                 )}
 
                 {owner?.phone && (
-                  <Card 
+                  <Card
                     className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02] border-2 hover:border-primary"
                     onClick={() => window.open(getWhatsAppLink()!, "_blank")}
                   >
@@ -450,7 +443,7 @@ export default function FinderPage() {
                 )}
 
                 {owner?.email && (
-                  <Card 
+                  <Card
                     className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02] border-2 hover:border-primary"
                     onClick={() => window.open(getEmailLink()!, "_blank")}
                   >
@@ -481,9 +474,7 @@ export default function FinderPage() {
                   <div className="text-center py-8">
                     <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
                     <h3 className="text-xl font-semibold mb-2">Message Sent!</h3>
-                    <p className="text-muted-foreground">
-                      The owner has been notified. Thank you for helping!
-                    </p>
+                    <p className="text-muted-foreground">The owner has been notified. Thank you for helping!</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
