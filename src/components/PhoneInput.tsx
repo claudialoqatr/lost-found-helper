@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -43,69 +43,76 @@ interface PhoneInputProps {
   placeholder?: string;
 }
 
+const getDialCode = (countryCode: string) => {
+  return countryCodes.find(c => c.code === countryCode)?.dial || "+27";
+};
+
+const detectCountryFromTimezone = (): string => {
+  try {
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (timezone.includes("Johannesburg") || timezone.includes("Africa/")) {
+      return "ZA";
+    } else if (timezone.includes("London") || timezone.includes("Europe/London")) {
+      return "GB";
+    } else if (timezone.includes("America/New_York") || timezone.includes("America/Los_Angeles")) {
+      return "US";
+    } else if (timezone.includes("Sydney") || timezone.includes("Australia/")) {
+      return "AU";
+    }
+  } catch {
+    // Fallback
+  }
+  return "ZA";
+};
+
+const parseInitialValue = (value: string): { country: string; phone: string } => {
+  if (value && value.startsWith("+")) {
+    const matchedCountry = countryCodes.find(c => value.startsWith(c.dial));
+    if (matchedCountry) {
+      return {
+        country: matchedCountry.code,
+        phone: value.slice(matchedCountry.dial.length),
+      };
+    }
+  }
+  return { country: detectCountryFromTimezone(), phone: "" };
+};
+
 export function PhoneInput({ value, onChange, placeholder = "Phone number" }: PhoneInputProps) {
-  const [selectedCountry, setSelectedCountry] = useState("ZA"); // Default to South Africa
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const initialized = useRef(false);
+  const [selectedCountry, setSelectedCountry] = useState(() => {
+    const parsed = parseInitialValue(value);
+    return parsed.country;
+  });
+  const [phoneNumber, setPhoneNumber] = useState(() => {
+    const parsed = parseInitialValue(value);
+    return parsed.phone;
+  });
 
-  const getDialCode = (countryCode: string) => {
-    return countryCodes.find(c => c.code === countryCode)?.dial || "+27";
-  };
+  // Only initialize once
+  if (!initialized.current) {
+    initialized.current = true;
+  }
 
-  // Try to detect country from browser/timezone on mount
-  useEffect(() => {
-    try {
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      if (timezone.includes("Johannesburg") || timezone.includes("Africa/")) {
-        setSelectedCountry("ZA");
-      } else if (timezone.includes("London") || timezone.includes("Europe/London")) {
-        setSelectedCountry("GB");
-      } else if (timezone.includes("America/New_York") || timezone.includes("America/Los_Angeles")) {
-        setSelectedCountry("US");
-      } else if (timezone.includes("Sydney") || timezone.includes("Australia/")) {
-        setSelectedCountry("AU");
-      }
-    } catch {
-      // Fallback to South Africa
-      setSelectedCountry("ZA");
-    }
-  }, []);
-
-  // Parse incoming value on mount
-  useEffect(() => {
-    if (value && value.startsWith("+")) {
-      // Find matching country code
-      const matchedCountry = countryCodes.find(c => value.startsWith(c.dial));
-      if (matchedCountry) {
-        setSelectedCountry(matchedCountry.code);
-        setPhoneNumber(value.slice(matchedCountry.dial.length));
-      }
-    }
-  }, []);
-
-  // Memoize the onChange to prevent infinite loops
-  const updateValue = useCallback((country: string, phone: string) => {
-    const dialCode = getDialCode(country);
-    const cleanNumber = phone.replace(/\D/g, "");
-    if (cleanNumber) {
-      onChange(`${dialCode}${cleanNumber}`);
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const cleaned = e.target.value.replace(/\D/g, "");
+    setPhoneNumber(cleaned);
+    
+    const dialCode = getDialCode(selectedCountry);
+    if (cleaned) {
+      onChange(`${dialCode}${cleaned}`);
     } else {
       onChange("");
     }
-  }, [onChange]);
-
-  // Update parent value when country or phone number changes
-  useEffect(() => {
-    updateValue(selectedCountry, phoneNumber);
-  }, [selectedCountry, phoneNumber, updateValue]);
-
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Only allow digits
-    const cleaned = e.target.value.replace(/\D/g, "");
-    setPhoneNumber(cleaned);
   };
 
   const handleCountryChange = (countryCode: string) => {
     setSelectedCountry(countryCode);
+    
+    const dialCode = getDialCode(countryCode);
+    if (phoneNumber) {
+      onChange(`${dialCode}${phoneNumber}`);
+    }
   };
 
   return (
