@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useTheme } from "next-themes";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,7 +17,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { Menu, Tag, MessageSquare, Bell, LogOut, X } from "lucide-react";
+import { Menu, Tag, MessageSquare, Bell, LogOut } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import logoDark from "@/assets/logo-dark.svg";
+import logoLight from "@/assets/logo-light.svg";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -27,6 +31,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
+  const { resolvedTheme } = useTheme();
   const devBypass = localStorage.getItem("dev_bypass") === "true";
   
   // TODO: Fetch unread message count from database
@@ -66,7 +71,13 @@ export function AppLayout({ children }: AppLayoutProps) {
             </SheetTrigger>
             <SheetContent side="left" className="w-[280px]">
               <SheetHeader className="text-left">
-                <SheetTitle className="gradient-loqatr-text text-2xl">LOQATR</SheetTitle>
+                <SheetTitle>
+                  <img 
+                    src={resolvedTheme === "dark" ? logoLight : logoDark} 
+                    alt="LOQATR" 
+                    className="h-8 w-auto"
+                  />
+                </SheetTitle>
               </SheetHeader>
               <nav className="mt-8 flex flex-col gap-2">
                 {navItems.map((item) => (
@@ -121,11 +132,16 @@ export function AppLayout({ children }: AppLayoutProps) {
 
           {/* Center: Logo */}
           <Link to="/my-tags" className="absolute left-1/2 -translate-x-1/2">
-            <h1 className="text-xl font-bold gradient-loqatr-text">LOQATR</h1>
+            <img 
+              src={resolvedTheme === "dark" ? logoLight : logoDark} 
+              alt="LOQATR" 
+              className="h-8 w-auto"
+            />
           </Link>
 
-          {/* Right: Notifications & User */}
-          <div className="flex items-center gap-2">
+          {/* Right: Theme, Notifications & User */}
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
             {/* Bell notification */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
