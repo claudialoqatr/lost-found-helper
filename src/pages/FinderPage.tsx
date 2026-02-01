@@ -181,6 +181,7 @@ export default function FinderPage() {
       }
 
       // Fetch item info
+      let fetchedItemName: string | null = null;
       if (qrData.item_id) {
         const { data: itemData, error: itemError } = await supabase
           .from("items")
@@ -190,6 +191,7 @@ export default function FinderPage() {
 
         if (itemError) throw itemError;
         setItem(itemData);
+        fetchedItemName = itemData?.name || null;
 
         // Fetch item details
         const { data: detailsData } = await supabase
@@ -207,8 +209,8 @@ export default function FinderPage() {
         }
       }
 
-      // Record the scan
-      await recordScan(qrData.id);
+      // Record the scan and notify owner
+      await recordScan(qrData.id, qrData.assigned_to, fetchedItemName);
     } catch (error) {
       console.error("Error fetching data:", error);
       toast({
@@ -221,7 +223,7 @@ export default function FinderPage() {
     }
   };
 
-  const recordScan = async (qrCodeId: number) => {
+  const recordScan = async (qrCodeId: number, ownerId: number | null, itemName: string | null) => {
     try {
       // Wait briefly for location if still loading
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -240,10 +242,10 @@ export default function FinderPage() {
       }
 
       // Notify owner that their tag was scanned
-      if (qrCode?.assigned_to && item) {
+      if (ownerId && itemName) {
         await notifyTagScanned(
-          qrCode.assigned_to,
-          item.name,
+          ownerId,
+          itemName,
           qrCodeId,
           location.address
         );
