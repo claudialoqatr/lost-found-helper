@@ -269,7 +269,7 @@ export default function MyTagsPage() {
                 <Card 
                   key={tag.id} 
                   className="group hover:border-accent/50 transition-colors cursor-pointer active:scale-[0.98]"
-                  onClick={() => navigate(`/tag/${tag.loqatr_id}`)}
+                  onClick={() => navigate(`/my-tags/${tag.loqatr_id}`)}
                 >
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
