@@ -17,8 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { Menu, Tag, MessageSquare, Bell, LogOut } from "lucide-react";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { Menu, Tag, MessageSquare, Bell, LogOut, Sun, Moon } from "lucide-react";
 import logoDark from "@/assets/logo-dark.svg";
 import logoLight from "@/assets/logo-light.svg";
 
@@ -31,7 +30,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
-  const { resolvedTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
   const devBypass = localStorage.getItem("dev_bypass") === "true";
   
   // TODO: Fetch unread message count from database
@@ -102,7 +101,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               ))}
             </nav>
 
-            {/* Sign out button */}
+            {/* Sign out button - desktop */}
             <Button 
               variant="outline" 
               onClick={handleSignOut}
@@ -111,8 +110,55 @@ export function AppLayout({ children }: AppLayoutProps) {
               Sign out
             </Button>
 
-            {/* Theme toggle */}
-            <ThemeToggle />
+            {/* Theme toggle - desktop only */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="hidden md:flex"
+              onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+            >
+              <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+              <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+              <span className="sr-only">Toggle theme</span>
+            </Button>
+
+            {/* Notifications - mobile */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="relative md:hidden">
+                  <Bell className="h-5 w-5" />
+                  {unreadMessages > 0 && (
+                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center">
+                      {unreadMessages > 9 ? "9+" : unreadMessages}
+                    </span>
+                  )}
+                  <span className="sr-only">Notifications</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-80">
+                <div className="p-4 border-b">
+                  <h3 className="font-semibold">Notifications</h3>
+                </div>
+                {unreadMessages === 0 ? (
+                  <div className="p-8 text-center text-muted-foreground">
+                    <Bell className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No new notifications</p>
+                  </div>
+                ) : (
+                  <DropdownMenuItem asChild>
+                    <Link to="/messages" className="cursor-pointer">
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                      {unreadMessages} new message{unreadMessages > 1 ? "s" : ""}
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                <div className="p-2 border-t">
+                  <Button variant="ghost" size="sm" className="w-full" asChild>
+                    <Link to="/messages">View all messages</Link>
+                  </Button>
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             {/* Mobile menu */}
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
@@ -154,6 +200,18 @@ export function AppLayout({ children }: AppLayoutProps) {
                     </Link>
                   ))}
                   <div className="border-t my-4" />
+                  {/* Theme toggle in mobile menu */}
+                  <button
+                    onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+                    className="flex items-center gap-3 px-4 py-3 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors w-full text-left"
+                  >
+                    {resolvedTheme === "dark" ? (
+                      <Sun className="h-5 w-5" />
+                    ) : (
+                      <Moon className="h-5 w-5" />
+                    )}
+                    {resolvedTheme === "dark" ? "Light mode" : "Dark mode"}
+                  </button>
                   <button
                     onClick={handleSignOut}
                     className="flex items-center gap-3 px-4 py-3 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors w-full text-left"
