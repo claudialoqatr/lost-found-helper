@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, Plus, Trash2, Info, Unlink } from "lucide-react";
+import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,6 +14,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { UnassignTagDialog } from "@/components/UnassignTagDialog";
+import logoDark from "@/assets/logo-dark.svg";
+import logoLight from "@/assets/logo-light.svg";
 
 interface ItemDetail {
   id: string;
@@ -55,6 +58,7 @@ export default function ClaimTagPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
+  const { resolvedTheme } = useTheme();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -383,15 +387,19 @@ export default function ClaimTagPage() {
       <div className="relative z-10">
         {/* Header */}
         <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="container flex h-16 items-center justify-between px-4 lg:px-8">
-            <span className="text-2xl lg:text-3xl font-bold">
-              loq<span className="text-loqatr-cyan">a</span>tr
-            </span>
+          <div className="container flex h-20 items-center justify-between px-4 lg:px-8">
+            <Link to="/my-tags">
+              <img 
+                src={resolvedTheme === "dark" ? logoLight : logoDark} 
+                alt="LOQATR" 
+                className="h-14 lg:h-16 w-auto"
+              />
+            </Link>
             <div className="flex items-center gap-4">
               <span className="text-sm text-muted-foreground hidden md:inline">
                 Hey, {userProfile?.name?.split(" ")[0] || "User"}!
               </span>
-              <Button variant="outline" size="sm" onClick={() => navigate("/")}>
+              <Button variant="outline" size="sm" onClick={() => navigate("/my-tags")}>
                 Dashboard
               </Button>
             </div>

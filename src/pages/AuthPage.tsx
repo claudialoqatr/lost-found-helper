@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "@/hooks/useAuth";
+import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +12,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { PhoneInput } from "@/components/PhoneInput";
 import { toast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import logoDark from "@/assets/logo-dark.svg";
+import logoLight from "@/assets/logo-light.svg";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email"),
@@ -33,6 +36,7 @@ export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user, signIn, signUp } = useAuth();
+  const { resolvedTheme } = useTheme();
   const navigate = useNavigate();
 
   const loginForm = useForm<LoginFormData>({
@@ -118,7 +122,13 @@ export default function AuthPage() {
       <Card className="w-full max-w-md relative z-10 border-border/50 shadow-xl">
         <CardHeader className="text-center space-y-2">
           <div className="mx-auto mb-4">
-            <h1 className="text-3xl font-bold gradient-loqatr-text">LOQATR</h1>
+            <Link to="/my-tags">
+              <img 
+                src={resolvedTheme === "dark" ? logoLight : logoDark} 
+                alt="LOQATR" 
+                className="h-16 w-auto mx-auto"
+              />
+            </Link>
           </div>
           <CardTitle className="text-2xl">
             {isLogin ? "Welcome back" : "Create account"}

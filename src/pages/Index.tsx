@@ -3,10 +3,14 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
 import { Tag, MessageSquare, QrCode, Shield, Users } from "lucide-react";
+import { useTheme } from "next-themes";
+import logoDark from "@/assets/logo-dark.svg";
+import logoLight from "@/assets/logo-light.svg";
 
 const Index = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const { resolvedTheme } = useTheme();
   const devBypass = localStorage.getItem("dev_bypass") === "true";
   const isAuthenticated = user || devBypass;
 
@@ -41,7 +45,13 @@ const Index = () => {
         {/* Header */}
         <header className="border-b border-border/50 bg-background/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 lg:px-8 py-4 flex justify-between items-center">
-            <h1 className="text-2xl lg:text-3xl font-bold gradient-loqatr-text">LOQATR</h1>
+            <Link to="/my-tags">
+              <img 
+                src={resolvedTheme === "dark" ? logoLight : logoDark} 
+                alt="LOQATR" 
+                className="h-12 lg:h-16 w-auto"
+              />
+            </Link>
             <Button asChild>
               <Link to="/auth">Sign in</Link>
             </Button>
