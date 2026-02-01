@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Trash2, Info, Unlink } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,10 +12,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { UnassignTagDialog } from "@/components/UnassignTagDialog";
-import { AppLayout } from "@/components/AppLayout";
-import { ScanHistory } from "@/components/ScanHistory";
-import { notifyTagAssigned, notifyTagUnassigned } from "@/lib/notifications";
 
 interface ItemDetail {
   id: string;
@@ -44,25 +40,16 @@ interface ItemData {
   description: string | null;
 }
 
-const FIELD_TYPES = [
-  "Emergency contact",
-  "Return address",
-  "Reward offer",
-  "Medical info",
-  "Pet info",
-  "Other",
-];
+const FIELD_TYPES = ["Emergency contact", "Return address", "Reward offer", "Medical info", "Pet info", "Other"];
 
 export default function ClaimTagPage() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [unassigning, setUnassigning] = useState(false);
-  const [showUnassignDialog, setShowUnassignDialog] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [qrCode, setQRCode] = useState<QRCodeData | null>(null);
   const [existingItem, setExistingItem] = useState<ItemData | null>(null);
@@ -78,79 +65,15 @@ export default function ClaimTagPage() {
   const isAuthenticated = user || devBypass;
 
   useEffect(() => {
-    // Wait for auth to finish loading before checking authentication
-    if (authLoading) return;
-
-    // Check if the tag is assigned before requiring authentication
-    // This allows unauthenticated users to be redirected to FinderPage for assigned tags
-    checkTagAndFetch();
-  }, [code, isAuthenticated, authLoading]);
-
-  const checkTagAndFetch = async () => {
-    if (!code) return;
-
-    try {
-      // First, fetch the QR code to check its status
-      const { data: qrData, error: qrError } = await supabase
-        .from("qrcodes")
-        .select("id, loqatr_id, is_public, item_id, assigned_to, status")
-        .eq("loqatr_id", code)
-        .maybeSingle();
-
-      if (qrError) throw qrError;
-
-      if (!qrData) {
-        toast({
-          title: "QR Code not found",
-          description: "This QR code doesn't exist in our system.",
-          variant: "destructive",
-        });
-        navigate("/");
-        return;
-      }
-
-      // If the tag is assigned and active, check if user is the owner
-      if (qrData.assigned_to && qrData.status === "active") {
-        if (!isAuthenticated) {
-          // Unauthenticated user viewing an assigned tag - redirect to finder page
-          navigate(`/found/${code}`);
-          return;
-        }
-
-        // Check if current user is the owner
-        let currentUserId: number | null = null;
-        if (user) {
-          const { data: profileData } = await supabase
-            .from("users")
-            .select("id")
-            .eq("auth_id", user.id)
-            .maybeSingle();
-          currentUserId = profileData?.id || null;
-        } else if (devBypass) {
-          currentUserId = 1;
-        }
-
-        if (currentUserId !== qrData.assigned_to) {
-          // Not the owner - redirect to finder page
-          navigate(`/found/${code}`);
-          return;
-        }
-      } else {
-        // Tag is not assigned - require authentication to claim
-        if (!isAuthenticated) {
-          sessionStorage.setItem("redirect_after_auth", `/tag/${code}`);
-          navigate("/auth");
-          return;
-        }
-      }
-
-      // User is authenticated and either owns the tag or tag is unclaimed - proceed with full fetch
-      fetchData();
-    } catch (error) {
-      console.error("Error checking tag:", error);
-      setLoading(false);
+    if (!isAuthenticated) {
+      // Store the intended destination and redirect to auth
+      sessionStorage.setItem("redirect_after_auth", `/tag/${code}`);
+      navigate("/auth");
+      return;
     }
-  };
+
+    fetchData();
+  }, [code, isAuthenticated]);
 
   const fetchData = async () => {
     if (!code) return;
@@ -180,6 +103,7 @@ export default function ClaimTagPage() {
       setIsPublic(qrData.is_public);
 
       // Fetch user profile
+      let currentUserProfile: UserProfile | null = null;
       if (user) {
         const { data: profileData, error: profileError } = await supabase
           .from("users")
@@ -188,15 +112,26 @@ export default function ClaimTagPage() {
           .maybeSingle();
 
         if (profileError) throw profileError;
+        currentUserProfile = profileData;
         setUserProfile(profileData);
       } else if (devBypass) {
         // Mock profile for dev mode
-        setUserProfile({
+        currentUserProfile = {
           id: 1,
           name: "Dev User",
           email: "dev@loqatr.com",
           phone: "0123456789",
-        });
+        };
+        setUserProfile(currentUserProfile);
+      }
+
+      // If QR is claimed by someone else, redirect to finder page
+      if (qrData.assigned_to && qrData.status === "active") {
+        const isOwner = currentUserProfile?.id === qrData.assigned_to;
+        if (!isOwner) {
+          navigate(`/found/${code}`);
+          return;
+        }
       }
 
       // If there's an existing item, fetch it
@@ -225,7 +160,7 @@ export default function ClaimTagPage() {
                 id: crypto.randomUUID(),
                 fieldType: d.item_detail_fields?.type || "Other",
                 value: d.value,
-              }))
+              })),
             );
           }
         }
@@ -243,10 +178,7 @@ export default function ClaimTagPage() {
   };
 
   const addDetail = () => {
-    setItemDetails([
-      ...itemDetails,
-      { id: crypto.randomUUID(), fieldType: "Emergency contact", value: "" },
-    ]);
+    setItemDetails([...itemDetails, { id: crypto.randomUUID(), fieldType: "Emergency contact", value: "" }]);
   };
 
   const removeDetail = (id: string) => {
@@ -254,9 +186,7 @@ export default function ClaimTagPage() {
   };
 
   const updateDetail = (id: string, field: "fieldType" | "value", value: string) => {
-    setItemDetails(
-      itemDetails.map((d) => (d.id === id ? { ...d, [field]: value } : d))
-    );
+    setItemDetails(itemDetails.map((d) => (d.id === id ? { ...d, [field]: value } : d)));
   };
 
   const handleSubmit = async () => {
@@ -351,11 +281,6 @@ export default function ClaimTagPage() {
 
       if (qrError) throw qrError;
 
-      // Create notification for tag claim (only for new claims, not updates)
-      if (!existingItem && userProfile && itemId) {
-        await notifyTagAssigned(userProfile.id, itemName.trim(), qrCode.id);
-      }
-
       toast({
         title: existingItem ? "Item updated!" : "Tag claimed!",
         description: existingItem
@@ -363,7 +288,7 @@ export default function ClaimTagPage() {
           : "This QR code is now linked to your account.",
       });
 
-      navigate("/my-tags");
+      navigate("/");
     } catch (error) {
       console.error("Error saving:", error);
       toast({
@@ -376,81 +301,47 @@ export default function ClaimTagPage() {
     }
   };
 
-  const handleUnassign = async () => {
-    if (!qrCode) return;
-
-    setUnassigning(true);
-    try {
-      // Delete item details if there's an item
-      if (qrCode.item_id) {
-        await supabase.from("item_details").delete().eq("item_id", qrCode.item_id);
-        
-        // Delete the item
-        await supabase.from("items").delete().eq("id", qrCode.item_id);
-      }
-
-      // Reset the QR code - clear assignment, item, and set back to unassigned status
-      const { error: qrError } = await supabase
-        .from("qrcodes")
-        .update({
-          assigned_to: null,
-          item_id: null,
-          is_public: false,
-          status: "unassigned",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", qrCode.id);
-
-      if (qrError) throw qrError;
-
-      // Create notification for unassignment
-      if (userProfile && existingItem) {
-        await notifyTagUnassigned(userProfile.id, existingItem.name);
-      }
-
-      toast({
-        title: "Tag unassigned",
-        description: "The tag has been cleared and is ready to be claimed again.",
-      });
-
-      setShowUnassignDialog(false);
-      navigate("/my-tags");
-    } catch (error) {
-      console.error("Error unassigning:", error);
-      toast({
-        title: "Error",
-        description: "Failed to unassign tag. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setUnassigning(false);
-    }
-  };
-
-  if (loading || authLoading) {
+  if (loading) {
     return (
-      <AppLayout>
-        <div className="flex items-center justify-center py-20">
-          <div className="animate-pulse text-muted-foreground">Loading...</div>
-        </div>
-      </AppLayout>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      </div>
     );
   }
 
   return (
-    <AppLayout>
-      <div className="container mx-auto px-4 lg:px-8 py-6 lg:py-12 pb-24">
-        <div className="max-w-2xl mx-auto lg:max-w-5xl">
-          {/* Go Back */}
-          <Button
-            variant="outline"
-            size="sm"
-            className="mb-6"
-            onClick={() => navigate(-1)}
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Go Back
-          </Button>
+    <div className="min-h-screen bg-background">
+      {/* Gradient background accent */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-1/2 -right-1/2 w-full h-full gradient-loqatr opacity-5 rounded-full blur-3xl" />
+      </div>
+
+      <div className="relative z-10">
+        {/* Header */}
+        <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="container flex h-16 items-center justify-between px-4 lg:px-8">
+            <span className="text-2xl lg:text-3xl font-bold">
+              loq<span className="text-loqatr-cyan">a</span>tr
+            </span>
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-muted-foreground hidden md:inline">
+                Hey, {userProfile?.name?.split(" ")[0] || "User"}!
+              </span>
+              <Button variant="outline" size="sm" onClick={() => navigate("/")}>
+                Dashboard
+              </Button>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Content */}
+        <main className="container mx-auto px-4 lg:px-8 py-6 lg:py-12 pb-24">
+          <div className="max-w-2xl mx-auto lg:max-w-5xl">
+            {/* Go Back */}
+            <Button variant="outline" size="sm" className="mb-6" onClick={() => navigate(-1)}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Go Back
+            </Button>
 
             {/* Two column layout on desktop */}
             <div className="lg:grid lg:grid-cols-2 lg:gap-12">
@@ -462,8 +353,8 @@ export default function ClaimTagPage() {
                     {existingItem ? "Edit Item" : "Claim This Tag"}
                   </h1>
                   <p className="text-muted-foreground lg:text-lg">
-                    Enter your contact details and item information. When your item is found,
-                    the finder can scan the QR code to help return it to you.
+                    Enter any additional info. When your item is found, the finder will see this information along with
+                    your contact info.
                   </p>
                 </div>
 
@@ -482,17 +373,15 @@ export default function ClaimTagPage() {
                 {/* Public/Private Toggle */}
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
-                    <span className={!isPublic ? "font-medium" : "text-muted-foreground"}>
-                      Private
-                    </span>
+                    <span className={!isPublic ? "font-medium" : "text-muted-foreground"}>Private</span>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Info className="h-4 w-4 text-muted-foreground cursor-help" />
                       </TooltipTrigger>
                       <TooltipContent>
                         <p className="max-w-xs">
-                          Private mode hides your contact details. Finders can only send you
-                          a message through our platform.
+                          Private mode hides your contact details. Finders can only send you a message through our
+                          platform.
                         </p>
                       </TooltipContent>
                     </Tooltip>
@@ -501,17 +390,14 @@ export default function ClaimTagPage() {
                   <Switch checked={isPublic} onCheckedChange={setIsPublic} />
 
                   <div className="flex items-center gap-2">
-                    <span className={isPublic ? "font-medium" : "text-muted-foreground"}>
-                      Public
-                    </span>
+                    <span className={isPublic ? "font-medium" : "text-muted-foreground"}>Public</span>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Info className="h-4 w-4 text-muted-foreground cursor-help" />
                       </TooltipTrigger>
                       <TooltipContent>
                         <p className="max-w-xs">
-                          Public mode shows your contact details directly to anyone who
-                          scans your QR code.
+                          Public mode shows your contact details directly to anyone who scans your QR code.
                         </p>
                       </TooltipContent>
                     </Tooltip>
@@ -524,10 +410,7 @@ export default function ClaimTagPage() {
                   <div className="space-y-3">
                     {itemDetails.map((detail) => (
                       <div key={detail.id} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                        <Select
-                          value={detail.fieldType}
-                          onValueChange={(v) => updateDetail(detail.id, "fieldType", v)}
-                        >
+                        <Select value={detail.fieldType} onValueChange={(v) => updateDetail(detail.id, "fieldType", v)}>
                           <SelectTrigger className="w-full sm:w-[160px] shrink-0">
                             <SelectValue />
                           </SelectTrigger>
@@ -559,11 +442,7 @@ export default function ClaimTagPage() {
                       </div>
                     ))}
                   </div>
-                  <Button
-                    variant="outline"
-                    className="mt-4"
-                    onClick={addDetail}
-                  >
+                  <Button variant="outline" className="mt-4" onClick={addDetail}>
                     <Plus className="h-4 w-4 mr-2" />
                     Add new detail
                   </Button>
@@ -583,30 +462,14 @@ export default function ClaimTagPage() {
                 </div>
 
                 {/* Submit Button - visible on mobile */}
-                <div className="lg:hidden space-y-3">
+                <div className="lg:hidden">
                   <Button
                     className="w-full gradient-loqatr text-white font-semibold h-12 text-base"
                     onClick={handleSubmit}
                     disabled={saving}
                   >
-                    {saving
-                      ? "Saving..."
-                      : existingItem
-                      ? "Update QR Code Item"
-                      : "Claim This Tag"}
+                    {saving ? "Saving..." : existingItem ? "Update QR Code Item" : "Claim This Tag"}
                   </Button>
-                  
-                  {/* Unassign Button - only show if user owns this tag */}
-                  {existingItem && (
-                    <Button
-                      variant="outline"
-                      className="w-full border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      onClick={() => setShowUnassignDialog(true)}
-                    >
-                      <Unlink className="h-4 w-4 mr-2" />
-                      Unassign Tag
-                    </Button>
-                  )}
                 </div>
               </div>
 
@@ -641,8 +504,7 @@ export default function ClaimTagPage() {
                     </div>
 
                     <p className="text-sm text-muted-foreground italic mt-4 pt-4 border-t">
-                      These details will be visible to anyone who scans your QR code when in
-                      public mode.
+                      These details will be visible to anyone who scans your QR code when in public mode.
                     </p>
                   </CardContent>
                 </Card>
@@ -652,58 +514,31 @@ export default function ClaimTagPage() {
                   <Card className="border-2">
                     <CardContent className="pt-6">
                       <h3 className="font-semibold">Loqatr ID</h3>
-                      <p className="text-loqatr-midnight dark:text-accent font-mono text-lg">
-                        {qrCode.loqatr_id}
-                      </p>
+                      <p className="text-loqatr-midnight dark:text-accent font-mono text-lg">{qrCode.loqatr_id}</p>
                     </CardContent>
                   </Card>
                 )}
 
                 {/* Submit Button - visible on desktop */}
-                <div className="hidden lg:block space-y-3">
+                <div className="hidden lg:block">
                   <Button
                     className="w-full gradient-loqatr text-white font-semibold h-12 text-base"
                     onClick={handleSubmit}
                     disabled={saving}
                   >
-                    {saving
-                      ? "Saving..."
-                      : existingItem
-                      ? "Update QR Code Item"
-                      : "Claim This Tag"}
+                    {saving ? "Saving..." : existingItem ? "Update QR Code Item" : "Claim This Tag"}
                   </Button>
-                  
-                  {/* Unassign Button - only show if user owns this tag */}
-                  {existingItem && (
-                    <Button
-                      variant="outline"
-                      className="w-full border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      onClick={() => setShowUnassignDialog(true)}
-                    >
-                      <Unlink className="h-4 w-4 mr-2" />
-                      Unassign Tag
-                    </Button>
-                  )}
                 </div>
 
-                {/* Scan History - only show for existing items (owner viewing their tag) */}
-                {existingItem && qrCode && (
-                  <ScanHistory qrCodeId={qrCode.id} />
-                )}
-
+                {/* Footer */}
+                <p className="text-center text-sm text-muted-foreground">
+                  Powered by <span className="font-semibold">Waterfall Digital</span>
+                </p>
               </div>
+            </div>
           </div>
-        </div>
+        </main>
       </div>
-
-      {/* Unassign Confirmation Dialog */}
-      <UnassignTagDialog
-        open={showUnassignDialog}
-        onOpenChange={setShowUnassignDialog}
-        onConfirm={handleUnassign}
-        isLoading={unassigning}
-        tagId={qrCode?.loqatr_id}
-      />
-    </AppLayout>
+    </div>
   );
 }
