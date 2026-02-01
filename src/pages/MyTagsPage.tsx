@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tag, Package, QrCode, ExternalLink, Clock, CheckCircle } from "lucide-react";
+import { Tag, Package, QrCode, Clock, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 
 interface TagWithItem {
@@ -16,6 +16,7 @@ interface TagWithItem {
   status: string;
   is_public: boolean;
   created_at: string | null;
+  last_scanned_at: string | null;
   item: {
     id: number;
     name: string;
@@ -54,8 +55,15 @@ export default function MyTagsPage() {
           userId = userData?.id ?? null;
         }
 
-        // In dev bypass mode, get all active tags for demo purposes
-        const query = supabase
+        // Must have a user to see tags (no dev bypass showing all tags)
+        if (!userId) {
+          setTags([]);
+          setLoading(false);
+          return;
+        }
+
+        // Fetch tags assigned to this user
+        const { data: qrcodeData, error: fetchError } = await supabase
           .from("qrcodes")
           .select(`
             id,
@@ -69,17 +77,31 @@ export default function MyTagsPage() {
               description
             )
           `)
-          .eq("status", "active");
-
-        // Only filter by assigned_to if we have a real user
-        if (userId) {
-          query.eq("assigned_to", userId);
-        }
-
-        const { data, error: fetchError } = await query.order("created_at", { ascending: false });
+          .eq("status", "active")
+          .eq("assigned_to", userId)
+          .order("created_at", { ascending: false });
 
         if (fetchError) throw fetchError;
-        setTags(data as TagWithItem[] || []);
+
+        // Fetch last scan for each tag
+        const tagsWithScans: TagWithItem[] = await Promise.all(
+          (qrcodeData || []).map(async (tag) => {
+            const { data: scanData } = await supabase
+              .from("scans")
+              .select("scanned_at")
+              .eq("qr_code_id", tag.id)
+              .order("scanned_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            return {
+              ...tag,
+              last_scanned_at: scanData?.scanned_at || null,
+            } as TagWithItem;
+          })
+        );
+
+        setTags(tagsWithScans);
       } catch (err) {
         console.error("Failed to fetch tags:", err);
         setError("Failed to load your tags. Please try again.");
@@ -167,15 +189,19 @@ export default function MyTagsPage() {
           {tags.length > 0 && (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {tags.map((tag) => (
-                <Card key={tag.id} className="group hover:border-accent/50 transition-colors">
+                <Card 
+                  key={tag.id} 
+                  className="group hover:border-accent/50 transition-colors cursor-pointer active:scale-[0.98]"
+                  onClick={() => navigate(`/tag/${tag.loqatr_id}`)}
+                >
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
                           <Package className="w-5 h-5 text-accent" />
                         </div>
-                        <div>
-                          <CardTitle className="text-lg">
+                        <div className="min-w-0">
+                          <CardTitle className="text-lg truncate">
                             {tag.item?.name || "Unnamed Item"}
                           </CardTitle>
                           <CardDescription className="font-mono text-xs">
@@ -193,18 +219,13 @@ export default function MyTagsPage() {
                       </p>
                     )}
                     
-                    <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                    <div className="flex items-center pt-2 border-t border-border/50">
                       <span className="text-xs text-muted-foreground">
-                        {tag.created_at 
-                          ? `Claimed ${format(new Date(tag.created_at), "MMM d, yyyy")}`
-                          : "Recently claimed"
+                        {tag.last_scanned_at 
+                          ? `Last scanned ${format(new Date(tag.last_scanned_at), "MMM d, yyyy")}`
+                          : "Never scanned"
                         }
                       </span>
-                      <Button variant="ghost" size="sm" asChild className="group-hover:text-accent">
-                        <Link to={`/tag/${tag.loqatr_id}`}>
-                          View <ExternalLink className="w-3 h-3 ml-1" />
-                        </Link>
-                      </Button>
                     </div>
                   </CardContent>
                 </Card>
