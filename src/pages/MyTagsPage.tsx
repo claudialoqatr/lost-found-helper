@@ -280,21 +280,13 @@ export default function MyTagsPage() {
                       </p>
                     )}
                     
-                    <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                    <div className="pt-2 border-t border-border/50">
                       <span className="text-xs text-muted-foreground">
                         {tag.last_scanned_at 
                           ? `Last scanned ${format(new Date(tag.last_scanned_at), "MMM d, yyyy")}`
                           : "Never scanned"
                         }
                       </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10 -mr-2"
-                        onClick={(e) => handleUnassignClick(e, tag)}
-                      >
-                        <Unlink className="h-4 w-4" />
-                      </Button>
                     </div>
                   </CardContent>
                 </Card>
