@@ -53,7 +53,7 @@ export default function ClaimTagPage() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -72,6 +72,9 @@ export default function ClaimTagPage() {
   const isAuthenticated = user || devBypass;
 
   useEffect(() => {
+    // Wait for auth to finish loading before checking authentication
+    if (authLoading) return;
+
     if (!isAuthenticated) {
       // Store the intended destination and redirect to auth
       sessionStorage.setItem("redirect_after_auth", `/tag/${code}`);
@@ -80,7 +83,7 @@ export default function ClaimTagPage() {
     }
 
     fetchData();
-  }, [code, isAuthenticated]);
+  }, [code, isAuthenticated, authLoading]);
 
   const fetchData = async () => {
     if (!code) return;
@@ -313,7 +316,7 @@ export default function ClaimTagPage() {
     }
   };
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-pulse text-muted-foreground">Loading...</div>
