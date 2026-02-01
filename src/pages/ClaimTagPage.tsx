@@ -14,6 +14,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { UnassignTagDialog } from "@/components/UnassignTagDialog";
 import { AppLayout } from "@/components/AppLayout";
+import { ScanHistory } from "@/components/ScanHistory";
 import { notifyTagAssigned, notifyTagUnassigned } from "@/lib/notifications";
 
 interface ItemDetail {
@@ -684,6 +685,11 @@ export default function ClaimTagPage() {
                     </Button>
                   )}
                 </div>
+
+                {/* Scan History - only show for existing items (owner viewing their tag) */}
+                {existingItem && qrCode && (
+                  <ScanHistory qrCodeId={qrCode.id} />
+                )}
 
               </div>
           </div>
