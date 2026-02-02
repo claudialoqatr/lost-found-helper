@@ -20,6 +20,10 @@ const loginSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
+const forgotPasswordSchema = z.object({
+  email: z.string().email("Please enter a valid email"),
+});
+
 const signupSchema = loginSchema.extend({
   name: z.string().min(2, "Name must be at least 2 characters"),
   phone: z.string().min(10, "Please enter a valid phone number"),
@@ -31,11 +35,14 @@ const signupSchema = loginSchema.extend({
 
 type LoginFormData = z.infer<typeof loginSchema>;
 type SignupFormData = z.infer<typeof signupSchema>;
+type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
+
+type AuthMode = "login" | "signup" | "forgot-password";
 
 export default function AuthPage() {
-  const [isLogin, setIsLogin] = useState(true);
+  const [mode, setMode] = useState<AuthMode>("login");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { user, signIn, signUp } = useAuth();
+  const { user, signIn, signUp, resetPassword } = useAuth();
   const { resolvedTheme } = useTheme();
   const navigate = useNavigate();
 
@@ -47,6 +54,11 @@ export default function AuthPage() {
   const signupForm = useForm<SignupFormData>({
     resolver: zodResolver(signupSchema),
     defaultValues: { email: "", password: "", name: "", phone: "", confirmPassword: "" },
+  });
+
+  const forgotPasswordForm = useForm<ForgotPasswordFormData>({
+    resolver: zodResolver(forgotPasswordSchema),
+    defaultValues: { email: "" },
   });
 
   // Dev bypass: Ctrl+Shift+D to skip auth
@@ -111,6 +123,42 @@ export default function AuthPage() {
     }
   };
 
+  const handleForgotPassword = async (data: ForgotPasswordFormData) => {
+    setIsSubmitting(true);
+    const { error } = await resetPassword(data.email);
+    setIsSubmitting(false);
+
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: "Request failed",
+        description: error.message,
+      });
+    } else {
+      toast({
+        title: "Check your email",
+        description: "We've sent you a password reset link.",
+      });
+      setMode("login");
+    }
+  };
+
+  const getTitle = () => {
+    switch (mode) {
+      case "login": return "Welcome back";
+      case "signup": return "Create account";
+      case "forgot-password": return "Reset password";
+    }
+  };
+
+  const getDescription = () => {
+    switch (mode) {
+      case "login": return "Sign in to manage your tags and messages";
+      case "signup": return "Start protecting your belongings today";
+      case "forgot-password": return "Enter your email and we'll send you a reset link";
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">
       {/* Gradient background accent */}
@@ -131,17 +179,15 @@ export default function AuthPage() {
             </Link>
           </div>
           <CardTitle className="text-2xl">
-            {isLogin ? "Welcome back" : "Create account"}
+            {getTitle()}
           </CardTitle>
           <CardDescription>
-            {isLogin 
-              ? "Sign in to manage your tags and messages" 
-              : "Start protecting your belongings today"}
+            {getDescription()}
           </CardDescription>
         </CardHeader>
 
-        <CardContent key={isLogin ? 'login' : 'signup'}>
-          {isLogin ? (
+        <CardContent key={mode}>
+          {mode === "login" ? (
             <Form {...loginForm}>
               <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-4">
                 <FormField
@@ -178,6 +224,15 @@ export default function AuthPage() {
                     </FormItem>
                   )}
                 />
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setMode("forgot-password")}
+                    className="text-sm text-muted-foreground hover:text-accent transition-colors"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
                 <Button 
                   type="submit" 
                   className="w-full" 
@@ -194,7 +249,7 @@ export default function AuthPage() {
                 </Button>
               </form>
             </Form>
-          ) : (
+          ) : mode === "signup" ? (
             <Form {...signupForm}>
               <form onSubmit={signupForm.handleSubmit(handleSignup)} className="space-y-4">
                 <FormField
@@ -297,22 +352,68 @@ export default function AuthPage() {
                 </Button>
               </form>
             </Form>
+          ) : (
+            <Form {...forgotPasswordForm}>
+              <form onSubmit={forgotPasswordForm.handleSubmit(handleForgotPassword)} className="space-y-4">
+                <FormField
+                  control={forgotPasswordForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="email" 
+                          placeholder="you@example.com" 
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button 
+                  type="submit" 
+                  className="w-full" 
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    "Send reset link"
+                  )}
+                </Button>
+              </form>
+            </Form>
           )}
 
           <div className="mt-6 text-center">
-            <button
-              type="button"
-              onClick={() => {
-                setIsLogin(!isLogin);
-                loginForm.reset();
-                signupForm.reset();
-              }}
-              className="text-sm text-muted-foreground hover:text-accent transition-colors"
-            >
-              {isLogin 
-                ? "Don't have an account? Sign up" 
-                : "Already have an account? Sign in"}
-            </button>
+            {mode === "forgot-password" ? (
+              <button
+                type="button"
+                onClick={() => setMode("login")}
+                className="text-sm text-muted-foreground hover:text-accent transition-colors"
+              >
+                Back to sign in
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setMode(mode === "login" ? "signup" : "login");
+                  loginForm.reset();
+                  signupForm.reset();
+                }}
+                className="text-sm text-muted-foreground hover:text-accent transition-colors"
+              >
+                {mode === "login" 
+                  ? "Don't have an account? Sign up" 
+                  : "Already have an account? Sign in"}
+              </button>
+            )}
           </div>
         </CardContent>
       </Card>
