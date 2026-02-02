@@ -68,7 +68,13 @@ const handler = async (req: Request): Promise<Response> => {
     const headers = Object.fromEntries(req.headers);
 
     // Verify webhook signature
-    const wh = new Webhook(SEND_EMAIL_HOOK_SECRET);
+    // Supabase webhook secrets are in format: v1,whsec_<base64secret>
+    // The standardwebhooks library only needs the base64 secret part
+    let webhookSecret = SEND_EMAIL_HOOK_SECRET;
+    if (webhookSecret.includes("whsec_")) {
+      webhookSecret = webhookSecret.split("whsec_")[1];
+    }
+    const wh = new Webhook(webhookSecret);
     let authPayload: AuthEmailPayload;
 
     try {
