@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Webhook } from "https://esm.sh/standardwebhooks@1.0.0";
 import { Resend } from "https://esm.sh/resend@4.0.0";
-import { renderAsync } from "https://esm.sh/@react-email/components@0.0.22";
+import { render } from "https://esm.sh/@react-email/render@0.0.12?deps=react@18.3.1,react-dom@18.3.1";
 import * as React from "https://esm.sh/react@18.3.1";
 
 import { WelcomeEmail } from "./_templates/welcome.tsx";
@@ -114,7 +114,7 @@ const handler = async (req: Request): Promise<Response> => {
     switch (email_action_type) {
       case "signup":
       case "invite":
-        html = await renderAsync(
+        html = await render(
           React.createElement(WelcomeEmail, {
             userName: user.user_metadata?.name,
             confirmUrl: verifyUrl,
@@ -125,7 +125,7 @@ const handler = async (req: Request): Promise<Response> => {
 
       case "magiclink":
       case "email":
-        html = await renderAsync(
+        html = await render(
           React.createElement(OtpEmail, {
             token,
             email_action_type,
@@ -135,7 +135,7 @@ const handler = async (req: Request): Promise<Response> => {
         break;
 
       case "recovery":
-        html = await renderAsync(
+        html = await render(
           React.createElement(PasswordResetEmail, {
             resetUrl: verifyUrl,
           })
@@ -144,7 +144,7 @@ const handler = async (req: Request): Promise<Response> => {
         break;
 
       case "email_change":
-        html = await renderAsync(
+        html = await render(
           React.createElement(EmailChangeEmail, {
             confirmUrl: verifyUrl,
           })
@@ -155,7 +155,7 @@ const handler = async (req: Request): Promise<Response> => {
       default:
         console.warn("Unknown email action type:", email_action_type);
         // Fallback to a simple verification email
-        html = await renderAsync(
+        html = await render(
           React.createElement(WelcomeEmail, {
             confirmUrl: verifyUrl,
           })
