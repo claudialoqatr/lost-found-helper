@@ -1,13 +1,11 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Webhook } from "https://esm.sh/standardwebhooks@1.0.0";
 import { Resend } from "https://esm.sh/resend@4.0.0";
-import { render } from "https://esm.sh/@react-email/render@0.0.12?deps=react@18.3.1,react-dom@18.3.1";
-import * as React from "https://esm.sh/react@18.3.1";
 
-import { WelcomeEmail } from "./_templates/welcome.tsx";
-import { OtpEmail } from "./_templates/otp.tsx";
-import { PasswordResetEmail } from "./_templates/password-reset.tsx";
-import { EmailChangeEmail } from "./_templates/email-change.tsx";
+import { welcomeEmail } from "./_templates/welcome.ts";
+import { otpEmail } from "./_templates/otp.ts";
+import { passwordResetEmail } from "./_templates/password-reset.ts";
+import { emailChangeEmail } from "./_templates/email-change.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -114,52 +112,42 @@ const handler = async (req: Request): Promise<Response> => {
     switch (email_action_type) {
       case "signup":
       case "invite":
-        html = await render(
-          React.createElement(WelcomeEmail, {
-            userName: user.user_metadata?.name,
-            confirmUrl: verifyUrl,
-          })
-        );
+        html = welcomeEmail({
+          userName: user.user_metadata?.name,
+          confirmUrl: verifyUrl,
+        });
         subject = "Welcome to LOQATR - Confirm your email";
         break;
 
       case "magiclink":
       case "email":
-        html = await render(
-          React.createElement(OtpEmail, {
-            token,
-            email_action_type,
-          })
-        );
+        html = otpEmail({
+          token,
+          email_action_type,
+        });
         subject = `Your LOQATR login code: ${token}`;
         break;
 
       case "recovery":
-        html = await render(
-          React.createElement(PasswordResetEmail, {
-            resetUrl: verifyUrl,
-          })
-        );
+        html = passwordResetEmail({
+          resetUrl: verifyUrl,
+        });
         subject = "Reset your LOQATR password";
         break;
 
       case "email_change":
-        html = await render(
-          React.createElement(EmailChangeEmail, {
-            confirmUrl: verifyUrl,
-          })
-        );
+        html = emailChangeEmail({
+          confirmUrl: verifyUrl,
+        });
         subject = "Confirm your new email address";
         break;
 
       default:
         console.warn("Unknown email action type:", email_action_type);
         // Fallback to a simple verification email
-        html = await render(
-          React.createElement(WelcomeEmail, {
-            confirmUrl: verifyUrl,
-          })
-        );
+        html = welcomeEmail({
+          confirmUrl: verifyUrl,
+        });
         subject = "Verify your LOQATR account";
     }
 
