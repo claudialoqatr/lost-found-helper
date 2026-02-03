@@ -16,7 +16,7 @@ interface ItemDetailsEditorProps {
   onUpdate: (id: string, field: "fieldType" | "value", value: string) => void;
 }
 
-const FIELD_TYPES = ["Emergency contact", "Return address", "Reward offer", "Medical info", "Pet info", "Other"];
+const FIELD_TYPES = ["Item owner name", "Emergency contact", "Return address", "Reward offer", "Medical info", "Pet info", "Other"];
 
 export function ItemDetailsEditor({ details, onAdd, onRemove, onUpdate }: ItemDetailsEditorProps) {
   return (

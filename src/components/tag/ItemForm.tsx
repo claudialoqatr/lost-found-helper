@@ -12,6 +12,8 @@ interface ItemFormProps {
   setIsPublic: (isPublic: boolean) => void;
   description: string;
   setDescription: (description: string) => void;
+  isItemOwner?: boolean;
+  onItemOwnerChange?: (isOwner: boolean) => void;
 }
 
 export function ItemForm({
@@ -21,6 +23,8 @@ export function ItemForm({
   setIsPublic,
   description,
   setDescription,
+  isItemOwner = true,
+  onItemOwnerChange,
 }: ItemFormProps) {
   return (
     <div className="space-y-6">
@@ -35,6 +39,40 @@ export function ItemForm({
           className="text-base"
         />
       </div>
+
+      {/* Item Ownership Toggle */}
+      {onItemOwnerChange && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <Switch
+              id="itemOwner"
+              checked={isItemOwner}
+              onCheckedChange={onItemOwnerChange}
+            />
+            <div className="flex items-center gap-2">
+              <Label htmlFor="itemOwner" className="cursor-pointer">
+                I own this item
+              </Label>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="max-w-xs">
+                    Toggle off if this item belongs to someone else (e.g., your child's backpack).
+                    You'll need to enter the owner's name.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </div>
+          {!isItemOwner && (
+            <p className="text-sm text-muted-foreground pl-1">
+              Please add the item owner's name in the details below.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Public/Private Toggle */}
       <div className="flex items-center gap-4">

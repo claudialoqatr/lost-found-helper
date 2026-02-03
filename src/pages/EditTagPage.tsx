@@ -49,6 +49,7 @@ export default function EditTagPage() {
   const [isPublic, setIsPublic] = useState(true);
   const [description, setDescription] = useState("");
   const [itemDetails, setItemDetails] = useState<ItemDetail[]>([]);
+  const [isItemOwner, setIsItemOwner] = useState(true);
 
   // Unassign dialog state
   const [showUnassignDialog, setShowUnassignDialog] = useState(false);
@@ -151,13 +152,16 @@ export default function EditTagPage() {
             .eq("item_id", itemData.id);
 
           if (detailsData) {
-            setItemDetails(
-              detailsData.map((d) => ({
-                id: crypto.randomUUID(),
-                fieldType: d.item_detail_fields?.type || "Other",
-                value: d.value,
-              })),
-            );
+            const mappedDetails = detailsData.map((d) => ({
+              id: crypto.randomUUID(),
+              fieldType: d.item_detail_fields?.type || "Other",
+              value: d.value,
+            }));
+            setItemDetails(mappedDetails);
+            
+            // Check if item has an alternate owner
+            const hasItemOwnerName = mappedDetails.some((d) => d.fieldType === "Item owner name");
+            setIsItemOwner(!hasItemOwnerName);
           }
         }
       }
@@ -179,11 +183,33 @@ export default function EditTagPage() {
   };
 
   const removeDetail = (id: string) => {
+    const detail = itemDetails.find((d) => d.id === id);
+    // Prevent removing "Item owner name" if isItemOwner is false
+    if (detail?.fieldType === "Item owner name" && !isItemOwner) {
+      return;
+    }
     setItemDetails(itemDetails.filter((d) => d.id !== id));
   };
 
   const updateDetail = (id: string, field: "fieldType" | "value", value: string) => {
     setItemDetails(itemDetails.map((d) => (d.id === id ? { ...d, [field]: value } : d)));
+  };
+
+  const handleItemOwnerChange = (isOwner: boolean) => {
+    setIsItemOwner(isOwner);
+    if (!isOwner) {
+      // Add "Item owner name" detail if not already present
+      const hasOwnerName = itemDetails.some((d) => d.fieldType === "Item owner name");
+      if (!hasOwnerName) {
+        setItemDetails([
+          { id: crypto.randomUUID(), fieldType: "Item owner name", value: "" },
+          ...itemDetails,
+        ]);
+      }
+    } else {
+      // Remove "Item owner name" detail when toggled back on
+      setItemDetails(itemDetails.filter((d) => d.fieldType !== "Item owner name"));
+    }
   };
 
   const handleSubmit = async () => {
@@ -194,6 +220,19 @@ export default function EditTagPage() {
         variant: "destructive",
       });
       return;
+    }
+
+    // Validate item owner name if not the owner
+    if (!isItemOwner) {
+      const ownerNameDetail = itemDetails.find((d) => d.fieldType === "Item owner name");
+      if (!ownerNameDetail?.value.trim()) {
+        toast({
+          title: "Item owner name required",
+          description: "Please enter the name of the item's owner.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     if (!qrCode || !userProfile || !item) return;
@@ -361,6 +400,8 @@ export default function EditTagPage() {
                 setIsPublic={setIsPublic}
                 description={description}
                 setDescription={setDescription}
+                isItemOwner={isItemOwner}
+                onItemOwnerChange={handleItemOwnerChange}
               />
 
               {/* Item Details */}
