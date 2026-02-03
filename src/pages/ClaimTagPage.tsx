@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Trash2, Info } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { ItemForm, ItemDetailsEditor, ContactDetailsCard, LoqatrIdCard, type ItemDetail } from "@/components/tag";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -309,8 +311,6 @@ export default function ClaimTagPage() {
                 setItemName={setItemName}
                 isPublic={isPublic}
                 setIsPublic={setIsPublic}
-                description={description}
-                setDescription={setDescription}
                 isItemOwner={isItemOwner}
                 onItemOwnerChange={handleItemOwnerChange}
               />
@@ -322,6 +322,19 @@ export default function ClaimTagPage() {
                 onRemove={removeDetail}
                 onUpdate={updateDetail}
               />
+
+              {/* Description */}
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Any additional information for the finder..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={4}
+                  className="resize-none"
+                />
+              </div>
 
               {/* Submit Button - visible on mobile */}
               <div className="lg:hidden">

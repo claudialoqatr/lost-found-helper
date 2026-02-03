@@ -6,6 +6,8 @@ import { ScanHistory } from "@/components/ScanHistory";
 import { UnassignTagDialog } from "@/components/UnassignTagDialog";
 import { ItemForm, ItemDetailsEditor, ContactDetailsCard, LoqatrIdCard, type ItemDetail } from "@/components/tag";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -398,8 +400,6 @@ export default function EditTagPage() {
                 setItemName={setItemName}
                 isPublic={isPublic}
                 setIsPublic={setIsPublic}
-                description={description}
-                setDescription={setDescription}
                 isItemOwner={isItemOwner}
                 onItemOwnerChange={handleItemOwnerChange}
               />
@@ -411,6 +411,19 @@ export default function EditTagPage() {
                 onRemove={removeDetail}
                 onUpdate={updateDetail}
               />
+
+              {/* Description */}
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Any additional information for the finder..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={4}
+                  className="resize-none"
+                />
+              </div>
 
               {/* Submit Button - visible on mobile */}
               <div className="lg:hidden space-y-3">

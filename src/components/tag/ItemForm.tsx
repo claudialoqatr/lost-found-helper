@@ -10,8 +10,6 @@ interface ItemFormProps {
   setItemName: (name: string) => void;
   isPublic: boolean;
   setIsPublic: (isPublic: boolean) => void;
-  description: string;
-  setDescription: (description: string) => void;
   isItemOwner?: boolean;
   onItemOwnerChange?: (isOwner: boolean) => void;
 }
@@ -21,8 +19,6 @@ export function ItemForm({
   setItemName,
   isPublic,
   setIsPublic,
-  description,
-  setDescription,
   isItemOwner = true,
   onItemOwnerChange,
 }: ItemFormProps) {
@@ -106,19 +102,6 @@ export function ItemForm({
             </TooltipContent>
           </Tooltip>
         </div>
-      </div>
-
-      {/* Description */}
-      <div className="space-y-2">
-        <Label htmlFor="description">Description</Label>
-        <Textarea
-          id="description"
-          placeholder="Any additional information for the finder..."
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={4}
-          className="resize-none"
-        />
       </div>
     </div>
   );
