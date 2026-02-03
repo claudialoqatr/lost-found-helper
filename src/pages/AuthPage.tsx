@@ -78,7 +78,14 @@ export default function AuthPage() {
 
   useEffect(() => {
     if (user) {
-      navigate("/");
+      // Check for redirect URL stored from QR scan flow
+      const redirectUrl = sessionStorage.getItem("redirect_after_auth");
+      if (redirectUrl) {
+        sessionStorage.removeItem("redirect_after_auth");
+        navigate(redirectUrl, { replace: true });
+      } else {
+        navigate("/", { replace: true });
+      }
     }
   }, [user, navigate]);
 
