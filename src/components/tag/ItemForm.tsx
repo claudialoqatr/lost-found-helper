@@ -40,14 +40,10 @@ export function ItemForm({
       {onItemOwnerChange && (
         <div className="space-y-2">
           <div className="flex items-center gap-3">
-            <Switch
-              id="itemOwner"
-              checked={isItemOwner}
-              onCheckedChange={onItemOwnerChange}
-            />
+            <Switch id="itemOwner" checked={isItemOwner} onCheckedChange={onItemOwnerChange} />
             <div className="flex items-center gap-2">
               <Label htmlFor="itemOwner" className="cursor-pointer">
-                I own this item
+                This is my item
               </Label>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -55,17 +51,15 @@ export function ItemForm({
                 </TooltipTrigger>
                 <TooltipContent>
                   <p className="max-w-xs">
-                    Toggle off if this item belongs to someone else (e.g., your child's backpack).
-                    You'll need to enter the owner's name.
+                    Toggle off if this item belongs to someone else (e.g., your child's backpack). You'll need to enter
+                    the owner's name.
                   </p>
                 </TooltipContent>
               </Tooltip>
             </div>
           </div>
           {!isItemOwner && (
-            <p className="text-sm text-muted-foreground pl-1">
-              Please add the item owner's name in the details below.
-            </p>
+            <p className="text-sm text-muted-foreground pl-1">Please add the item owner's name in the details below.</p>
           )}
         </div>
       )}
