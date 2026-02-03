@@ -1,0 +1,1 @@
+INSERT INTO item_detail_fields (id, type) VALUES (7, 'Item owner name');

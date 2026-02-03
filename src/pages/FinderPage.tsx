@@ -317,22 +317,33 @@ export default function FinderPage() {
     return owner.name.split(" ")[0];
   };
 
+  // Get display name: prioritize "Item owner name" detail, fallback to QR owner
+  const getDisplayOwnerName = () => {
+    const ownerNameDetail = itemDetails.find((d) => d.type === "Item owner name");
+    if (ownerNameDetail?.value) {
+      return ownerNameDetail.value.split(" ")[0]; // First name only
+    }
+    return getOwnerFirstName();
+  };
+
   const getWhatsAppLink = () => {
     if (!owner?.phone) return null;
     const cleanPhone = owner.phone.replace(/\D/g, "");
+    const displayName = getDisplayOwnerName();
     const locationText = location.address ? `\n\n Found at: ${location.address}` : "";
     const itemMessage = encodeURIComponent(
-      `Hi ${getOwnerFirstName()}! I found your ${item?.name || "item"} tagged with Loqatr.${locationText}`,
+      `Hi ${displayName}! I found your ${item?.name || "item"} tagged with Loqatr.${locationText}`,
     );
     return `https://wa.me/${cleanPhone}?text=${itemMessage}`;
   };
 
   const getEmailLink = () => {
     if (!owner?.email) return null;
+    const displayName = getDisplayOwnerName();
     const locationText = location.address ? `\n\nFound at: ${location.address}` : "";
     const subject = encodeURIComponent(`Found: ${item?.name || "Your Item"}`);
     const body = encodeURIComponent(
-      `Hi ${getOwnerFirstName()},\n\nI found your ${item?.name || "item"} tagged with Loqatr.${locationText}\n\nPlease let me know how I can return it to you.`,
+      `Hi ${displayName},\n\nI found your ${item?.name || "item"} tagged with Loqatr.${locationText}\n\nPlease let me know how I can return it to you.`,
     );
     return `mailto:${owner.email}?subject=${subject}&body=${body}`;
   };
@@ -394,7 +405,7 @@ export default function FinderPage() {
             <h1 className="text-3xl font-bold mb-3">
               You have found{" "}
               <span className="gradient-loqatr-text">
-                {qrCode?.is_public ? `${getOwnerFirstName()}'s` : "Someone's"}
+                {qrCode?.is_public ? `${getDisplayOwnerName()}'s` : "Someone's"}
               </span>{" "}
               {item?.name || "Item"}!
             </h1>
@@ -411,14 +422,16 @@ export default function FinderPage() {
             <CardContent className="pt-6">
               <h2 className="font-semibold text-lg mb-4">Item Details:</h2>
 
-              {itemDetails.length > 0 ? (
+              {itemDetails.filter((d) => d.type !== "Item owner name").length > 0 ? (
                 <div className="space-y-3">
-                  {itemDetails.map((detail, index) => (
-                    <div key={index}>
-                      <span className="font-medium">{detail.type}:</span>{" "}
-                      <span className="text-muted-foreground">{detail.value}</span>
-                    </div>
-                  ))}
+                  {itemDetails
+                    .filter((d) => d.type !== "Item owner name")
+                    .map((detail, index) => (
+                      <div key={index}>
+                        <span className="font-medium">{detail.type}:</span>{" "}
+                        <span className="text-muted-foreground">{detail.value}</span>
+                      </div>
+                    ))}
                 </div>
               ) : null}
 
@@ -429,7 +442,7 @@ export default function FinderPage() {
                 </div>
               )}
 
-              {itemDetails.length === 0 && !item?.description && (
+              {itemDetails.filter((d) => d.type !== "Item owner name").length === 0 && !item?.description && (
                 <p className="text-muted-foreground">No additional details provided.</p>
               )}
             </CardContent>
@@ -447,7 +460,7 @@ export default function FinderPage() {
           {qrCode?.is_public ? (
             /* PUBLIC MODE - Direct contact options */
             <div className="space-y-4">
-              <h2 className="font-bold text-xl text-center">Contact {getOwnerFirstName()}</h2>
+              <h2 className="font-bold text-xl text-center">Contact {getDisplayOwnerName()}</h2>
               <p className="text-center text-muted-foreground text-sm mb-6">
                 Choose how you'd like to reach out to the owner
               </p>
@@ -463,7 +476,7 @@ export default function FinderPage() {
                         <Phone className="h-5 w-5 md:h-8 md:w-8 text-green-600" />
                       </div>
                       <h3 className="font-semibold text-sm md:text-lg mb-0.5 md:mb-1">Call</h3>
-                      <p className="text-xs md:text-sm text-muted-foreground hidden md:block">Speak directly with {getOwnerFirstName()}</p>
+                      <p className="text-xs md:text-sm text-muted-foreground hidden md:block">Speak directly with {getDisplayOwnerName()}</p>
                     </CardContent>
                   </Card>
                 )}
