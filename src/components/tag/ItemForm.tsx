@@ -71,37 +71,17 @@ export function ItemForm({
       )}
 
       {/* Public/Private Toggle */}
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
+      <div className="space-y-2">
+        <div className="flex items-center gap-4">
           <span className={!isPublic ? "font-medium" : "text-muted-foreground"}>Private</span>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-            </TooltipTrigger>
-            <TooltipContent>
-              <p className="max-w-xs">
-                Private mode hides your contact details. Finders can only send you a message through our
-                platform.
-              </p>
-            </TooltipContent>
-          </Tooltip>
-        </div>
-
-        <Switch checked={isPublic} onCheckedChange={setIsPublic} />
-
-        <div className="flex items-center gap-2">
+          <Switch checked={isPublic} onCheckedChange={setIsPublic} />
           <span className={isPublic ? "font-medium" : "text-muted-foreground"}>Public</span>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-            </TooltipTrigger>
-            <TooltipContent>
-              <p className="max-w-xs">
-                Public mode shows your contact details directly to anyone who scans your QR code.
-              </p>
-            </TooltipContent>
-          </Tooltip>
         </div>
+        <p className="text-sm text-muted-foreground">
+          {isPublic
+            ? "Public mode shows your contact details directly to anyone who scans your QR code."
+            : "Private mode hides your contact details. Finders can only send you a message through our platform."}
+        </p>
       </div>
     </div>
   );
