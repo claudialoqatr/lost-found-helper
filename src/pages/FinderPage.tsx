@@ -138,16 +138,14 @@ export default function FinderPage() {
         }
       }
 
-      // For public tags, fetch owner's first name (not contact info)
-      if (qrData.is_public && qrData.assigned_to) {
-        const { data: ownerData } = await supabase
-          .from("users")
-          .select("name")
-          .eq("id", qrData.assigned_to)
-          .maybeSingle();
+      // For public tags, fetch owner's first name using secure function
+      if (qrData.is_public) {
+        const { data: nameData } = await supabase.rpc("get_public_owner_name", {
+          target_qr_id: code,
+        });
         
-        if (ownerData?.name) {
-          setOwnerFirstName(ownerData.name.split(" ")[0]);
+        if (nameData) {
+          setOwnerFirstName(nameData);
         }
       }
 
