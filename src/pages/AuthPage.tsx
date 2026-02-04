@@ -14,6 +14,7 @@ import { Turnstile } from "@/components/Turnstile";
 import { PasswordStrengthIndicator, isPasswordStrong } from "@/components/PasswordStrengthIndicator";
 import { toast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import logoDark from "@/assets/logo-dark.svg";
 import logoLight from "@/assets/logo-light.svg";
 
@@ -27,6 +28,20 @@ const loginSchema = z.object({
 
 const forgotPasswordSchema = z.object({
   email: z.string().max(254, "Email is too long").email("Please enter a valid email"),
+});
+
+const updatePasswordSchema = z.object({
+  password: z.string()
+    .min(8, "Password must be at least 8 characters")
+    .max(128, "Password is too long")
+    .regex(/[A-Z]/, "Password must contain an uppercase letter")
+    .regex(/[a-z]/, "Password must contain a lowercase letter")
+    .regex(/\d/, "Password must contain a number")
+    .regex(/[!@#$%^&*(),.?":{}|<>]/, "Password must contain a special character"),
+  confirmPassword: z.string().max(128, "Password is too long"),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
 });
 
 const signupSchema = z.object({
@@ -55,8 +70,9 @@ const signupSchema = z.object({
 type LoginFormData = z.infer<typeof loginSchema>;
 type SignupFormData = z.infer<typeof signupSchema>;
 type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
+type UpdatePasswordFormData = z.infer<typeof updatePasswordSchema>;
 
-type AuthMode = "login" | "signup" | "forgot-password";
+type AuthMode = "login" | "signup" | "forgot-password" | "update-password";
 
 export default function AuthPage() {
   const [mode, setMode] = useState<AuthMode>("login");
@@ -81,9 +97,25 @@ export default function AuthPage() {
     defaultValues: { email: "" },
   });
 
+  const updatePasswordForm = useForm<UpdatePasswordFormData>({
+    resolver: zodResolver(updatePasswordSchema),
+    defaultValues: { password: "", confirmPassword: "" },
+  });
 
+  // Listen for PASSWORD_RECOVERY event to show update password form
   useEffect(() => {
-    if (user) {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setMode("update-password");
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Auto-redirect logged in users (but NOT during password update flow)
+  useEffect(() => {
+    if (user && mode !== "update-password") {
       // Check for redirect URL stored from QR scan flow
       const redirectUrl = sessionStorage.getItem("redirect_after_auth");
       if (redirectUrl) {
@@ -93,7 +125,7 @@ export default function AuthPage() {
         navigate("/", { replace: true });
       }
     }
-  }, [user, navigate]);
+  }, [user, mode, navigate]);
 
   const handleLogin = async (data: LoginFormData) => {
     setIsSubmitting(true);
@@ -167,11 +199,32 @@ export default function AuthPage() {
     }
   };
 
+  const handleUpdatePassword = async (data: UpdatePasswordFormData) => {
+    setIsSubmitting(true);
+    const { error } = await supabase.auth.updateUser({ password: data.password });
+    setIsSubmitting(false);
+
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: "Password update failed",
+        description: error.message,
+      });
+    } else {
+      toast({
+        title: "Password updated!",
+        description: "Your password has been successfully reset.",
+      });
+      navigate("/", { replace: true });
+    }
+  };
+
   const getTitle = () => {
     switch (mode) {
       case "login": return "Welcome back";
       case "signup": return "Create account";
       case "forgot-password": return "Reset password";
+      case "update-password": return "Set new password";
     }
   };
 
@@ -180,6 +233,7 @@ export default function AuthPage() {
       case "login": return "Sign in to manage your tags and messages";
       case "signup": return "Start protecting your belongings today";
       case "forgot-password": return "Enter your email and we'll send you a reset link";
+      case "update-password": return "Enter your new password below";
     }
   };
 
@@ -394,7 +448,7 @@ export default function AuthPage() {
                 </Button>
               </form>
             </Form>
-          ) : (
+          ) : mode === "forgot-password" ? (
             <Form {...forgotPasswordForm}>
               <form onSubmit={forgotPasswordForm.handleSubmit(handleForgotPassword)} className="space-y-4">
                 <FormField
@@ -431,10 +485,66 @@ export default function AuthPage() {
                 </Button>
               </form>
             </Form>
-          )}
+          ) : mode === "update-password" ? (
+            <Form {...updatePasswordForm}>
+              <form onSubmit={updatePasswordForm.handleSubmit(handleUpdatePassword)} className="space-y-4">
+                <FormField
+                  control={updatePasswordForm.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>New Password</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="password" 
+                          placeholder="••••••••"
+                          maxLength={128}
+                          {...field} 
+                        />
+                      </FormControl>
+                      <PasswordStrengthIndicator password={field.value} />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={updatePasswordForm.control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Confirm New Password</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="password" 
+                          placeholder="••••••••"
+                          maxLength={128}
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button 
+                  type="submit" 
+                  className="w-full" 
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Updating password...
+                    </>
+                  ) : (
+                    "Reset Password"
+                  )}
+                </Button>
+              </form>
+            </Form>
+          ) : null}
 
           <div className="mt-6 text-center">
-            {mode === "forgot-password" ? (
+            {mode === "forgot-password" || mode === "update-password" ? (
               <button
                 type="button"
                 onClick={() => setMode("login")}
