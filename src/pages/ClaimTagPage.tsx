@@ -208,7 +208,22 @@ export default function ClaimTagPage() {
 
       if (itemError) throw itemError;
 
-      // Insert item details
+      // IMPORTANT: Update QR code FIRST to establish ownership
+      // This is required because item_details RLS checks qrcode ownership
+      const { error: qrError } = await supabase
+        .from("qrcodes")
+        .update({
+          item_id: newItem.id,
+          assigned_to: userProfile.id,
+          is_public: isPublic,
+          status: "active",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", qrCode.id);
+
+      if (qrError) throw qrError;
+
+      // Insert item details AFTER qrcode is linked (RLS requires ownership)
       if (itemDetails.length > 0 && newItem) {
         for (const detail of itemDetails) {
           if (!detail.value.trim()) continue;
@@ -238,20 +253,6 @@ export default function ClaimTagPage() {
           }
         }
       }
-
-      // Update QR code
-      const { error: qrError } = await supabase
-        .from("qrcodes")
-        .update({
-          item_id: newItem.id,
-          assigned_to: userProfile.id,
-          is_public: isPublic,
-          status: "active",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", qrCode.id);
-
-      if (qrError) throw qrError;
 
       toast({
         title: "Tag claimed!",
