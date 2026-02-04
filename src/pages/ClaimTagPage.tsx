@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
-import { ItemForm, ItemDetailsEditor, ContactDetailsCard, LoqatrIdCard } from "@/components/tag";
+import { ItemForm, ItemDetailsEditor, ContactDetailsCard, LoqatrIdCard, IconPicker } from "@/components/tag";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -27,6 +27,7 @@ export default function ClaimTagPage() {
   const [itemName, setItemName] = useState("");
   const [isPublic, setIsPublic] = useState(true);
   const [description, setDescription] = useState("");
+  const [iconName, setIconName] = useState("Package");
 
   // Use the shared item details manager hook
   const {
@@ -132,6 +133,7 @@ export default function ClaimTagPage() {
         .insert({
           name: itemName.trim(),
           description: description.trim() || null,
+          icon_name: iconName,
         })
         .select()
         .single();
@@ -226,6 +228,8 @@ export default function ClaimTagPage() {
                 isItemOwner={isItemOwner}
                 onItemOwnerChange={handleItemOwnerChange}
               />
+
+              <IconPicker value={iconName} onChange={setIconName} />
 
               <ItemDetailsEditor
                 details={itemDetails}

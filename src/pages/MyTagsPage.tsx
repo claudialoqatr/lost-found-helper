@@ -8,11 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tag, Package, QrCode, Clock, CheckCircle } from "lucide-react";
+import { Tag, QrCode, Globe, Lock } from "lucide-react";
 import { format } from "date-fns";
 import { UnassignTagDialog } from "@/components/UnassignTagDialog";
 import { useToast } from "@/hooks/use-toast";
 import { notifyTagUnassigned } from "@/lib/notifications";
+import { getIconByName } from "@/components/tag";
 import type { TagWithItem } from "@/types";
 
 export default function MyTagsPage() {
@@ -55,7 +56,8 @@ export default function MyTagsPage() {
             item:items (
               id,
               name,
-              description
+              description,
+              icon_name
             )
           `)
           .eq("status", "active")
@@ -96,15 +98,19 @@ export default function MyTagsPage() {
     }
   }, [user, authLoading, profileLoading, userProfile]);
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "active":
-        return <Badge className="bg-accent/20 text-accent border-accent/30"><CheckCircle className="w-3 h-3 mr-1" /> Active</Badge>;
-      case "assigned":
-        return <Badge variant="secondary"><Clock className="w-3 h-3 mr-1" /> Assigned</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
+  const getPrivacyBadge = (isPublic: boolean) => {
+    if (isPublic) {
+      return (
+        <Badge className="bg-accent/20 text-accent border-accent/30">
+          <Globe className="w-3 h-3 mr-1" /> Public
+        </Badge>
+      );
     }
+    return (
+      <Badge variant="secondary">
+        <Lock className="w-3 h-3 mr-1" /> Private
+      </Badge>
+    );
   };
 
   const handleUnassign = async () => {
@@ -227,20 +233,20 @@ export default function MyTagsPage() {
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
-                        <Package className="w-5 h-5 text-accent" />
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
+                        {(() => {
+                          const IconComponent = getIconByName(tag.item?.icon_name || "Package");
+                          return <IconComponent className="w-6 h-6 text-accent" />;
+                        })()}
                       </div>
                       <div className="min-w-0">
                         <CardTitle className="text-lg truncate">
                           {tag.item?.name || "Unnamed Item"}
                         </CardTitle>
-                        <CardDescription className="font-mono text-xs">
-                          {tag.loqatr_id}
-                        </CardDescription>
                       </div>
                     </div>
-                    {getStatusBadge(tag.status)}
+                    {getPrivacyBadge(tag.is_public)}
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">

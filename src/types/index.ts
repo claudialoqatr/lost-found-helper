@@ -40,6 +40,7 @@ export interface ItemInfo {
   id: number;
   name: string;
   description: string | null;
+  icon_name: string | null;
 }
 
 export interface ItemDetail {

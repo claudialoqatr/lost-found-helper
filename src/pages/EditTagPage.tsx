@@ -4,7 +4,7 @@ import { Unlink } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { ScanHistory } from "@/components/ScanHistory";
 import { UnassignTagDialog } from "@/components/UnassignTagDialog";
-import { ItemForm, ItemDetailsEditor, ContactDetailsCard, LoqatrIdCard } from "@/components/tag";
+import { ItemForm, ItemDetailsEditor, ContactDetailsCard, LoqatrIdCard, IconPicker } from "@/components/tag";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -33,6 +33,7 @@ export default function EditTagPage() {
   const [itemName, setItemName] = useState("");
   const [isPublic, setIsPublic] = useState(true);
   const [description, setDescription] = useState("");
+  const [iconName, setIconName] = useState("Package");
 
   // Unassign dialog state
   const [showUnassignDialog, setShowUnassignDialog] = useState(false);
@@ -114,6 +115,7 @@ export default function EditTagPage() {
           setItem(itemData);
           setItemName(itemData.name);
           setDescription(itemData.description || "");
+          setIconName(itemData.icon_name || "Package");
 
           // Fetch item details
           const { data: detailsData } = await supabase
@@ -180,6 +182,7 @@ export default function EditTagPage() {
         .update({
           name: itemName.trim(),
           description: description.trim() || null,
+          icon_name: iconName,
           updated_at: new Date().toISOString(),
         })
         .eq("id", item.id);
@@ -317,6 +320,8 @@ export default function EditTagPage() {
                 isItemOwner={isItemOwner}
                 onItemOwnerChange={handleItemOwnerChange}
               />
+
+              <IconPicker value={iconName} onChange={setIconName} />
 
               <ItemDetailsEditor
                 details={itemDetails}
