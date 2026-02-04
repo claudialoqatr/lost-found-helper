@@ -14,7 +14,7 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 import { useItemDetailsManager } from "@/hooks/useItemDetailsManager";
 import { supabase } from "@/integrations/supabase/client";
 import { notifyTagUnassigned } from "@/lib/notifications";
-import { PageLoadingState, PageHeader, BackButton, GradientButton, PoweredByFooter } from "@/components/shared";
+import { PageLoadingState, PageHeader, BackButton, GradientButton } from "@/components/shared";
 import type { QRCodeData, ItemInfo } from "@/types";
 
 export default function EditTagPage() {
@@ -383,8 +383,6 @@ export default function EditTagPage() {
                   Unassign Tag
                 </Button>
               </div>
-
-              <PoweredByFooter />
             </div>
           </div>
         </div>
