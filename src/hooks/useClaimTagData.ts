@@ -133,7 +133,7 @@ export function useClaimTagData({
 
     setSaving(true);
     try {
-      // Create the item
+      // Create the item first
       const { data: newItem, error: itemError } = await supabase
         .from("items")
         .insert({
@@ -146,8 +146,9 @@ export function useClaimTagData({
 
       if (itemError) throw itemError;
 
-      // Update QR code FIRST to establish ownership (required for RLS)
-      const { error: qrUpdateError } = await supabase
+      // Attempt to claim the QR code with optimistic locking
+      // The RLS policy already ensures assigned_to IS NULL, but we also check the result
+      const { data: updatedQR, error: qrUpdateError } = await supabase
         .from("qrcodes")
         .update({
           item_id: newItem.id,
@@ -156,9 +157,24 @@ export function useClaimTagData({
           status: "active",
           updated_at: new Date().toISOString(),
         })
-        .eq("id", qrCode.id);
+        .eq("id", qrCode.id)
+        .is("assigned_to", null) // Optimistic lock - only update if still unclaimed
+        .select()
+        .maybeSingle();
 
-      if (qrUpdateError) throw qrUpdateError;
+      // Check if claim succeeded
+      if (qrUpdateError || !updatedQR) {
+        // Claim failed - someone else got it first. Clean up the orphaned item.
+        await supabase.from("items").delete().eq("id", newItem.id);
+        
+        toast({
+          title: "Tag Already Claimed",
+          description: "Someone else just claimed this tag. Please try a different one.",
+          variant: "destructive",
+        });
+        navigate(`/found/${code}`, { replace: true });
+        return;
+      }
 
       // Insert item details AFTER qrcode is linked
       if (itemDetails.length > 0 && newItem) {
