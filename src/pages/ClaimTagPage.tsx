@@ -44,9 +44,7 @@ export default function ClaimTagPage() {
   const [isItemOwner, setIsItemOwner] = useState(true);
   const [itemDetails, setItemDetails] = useState<ItemDetail[]>([]);
 
-  // Dev bypass check
-  const devBypass = localStorage.getItem("dev_bypass") === "true";
-  const isAuthenticated = user || devBypass;
+  const isAuthenticated = !!user;
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -97,15 +95,6 @@ export default function ClaimTagPage() {
         if (profileError) throw profileError;
         currentUserProfile = profileData;
         setUserProfile(profileData);
-      } else if (devBypass) {
-        // Mock profile for dev mode
-        currentUserProfile = {
-          id: 1,
-          name: "Dev User",
-          email: "dev@loqatr.com",
-          phone: "0123456789",
-        };
-        setUserProfile(currentUserProfile);
       }
 
       // If QR is claimed by current user, redirect to edit page

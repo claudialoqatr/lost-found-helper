@@ -57,9 +57,7 @@ export default function EditTagPage() {
   const [showUnassignDialog, setShowUnassignDialog] = useState(false);
   const [unassigning, setUnassigning] = useState(false);
 
-  // Dev bypass check
-  const devBypass = localStorage.getItem("dev_bypass") === "true";
-  const isAuthenticated = user || devBypass;
+  const isAuthenticated = !!user;
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -109,14 +107,6 @@ export default function EditTagPage() {
         if (profileError) throw profileError;
         currentUserProfile = profileData;
         setUserProfile(profileData);
-      } else if (devBypass) {
-        currentUserProfile = {
-          id: 1,
-          name: "Dev User",
-          email: "dev@loqatr.com",
-          phone: "0123456789",
-        };
-        setUserProfile(currentUserProfile);
       }
 
       // If not the owner, redirect

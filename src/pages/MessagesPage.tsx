@@ -30,13 +30,11 @@ export default function MessagesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const devBypass = localStorage.getItem("dev_bypass") === "true";
-
   useEffect(() => {
-    if (!authLoading && !user && !devBypass) {
+    if (!authLoading && !user) {
       navigate("/auth");
     }
-  }, [user, authLoading, devBypass, navigate]);
+  }, [user, authLoading, navigate]);
 
   useEffect(() => {
     async function fetchMessages() {
@@ -64,14 +62,14 @@ export default function MessagesPage() {
         console.error("Failed to fetch messages:", err);
         setError("Failed to load messages. Please try again.");
       } finally {
-        setLoading(false);
-      }
+      setLoading(false);
     }
+  }
 
-    if (!authLoading && (user || devBypass)) {
+    if (!authLoading && user) {
       fetchMessages();
     }
-  }, [user, authLoading, devBypass]);
+  }, [user, authLoading]);
 
   if (authLoading || loading) {
     return (

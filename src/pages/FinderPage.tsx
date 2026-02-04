@@ -72,9 +72,6 @@ export default function FinderPage() {
   const [finderPhone, setFinderPhone] = useState("");
   const [message, setMessage] = useState("");
 
-  // Dev bypass
-  const devBypass = localStorage.getItem("dev_bypass") === "true";
-
   // Get finder's location
   const getLocation = useCallback(async () => {
     setLocationLoading(true);
@@ -152,15 +149,9 @@ export default function FinderPage() {
       }
 
       // Check if current user is owner
-      if (user || devBypass) {
-        let currentUserId: number | null = null;
-
-        if (user) {
-          const { data: profileData } = await supabase.from("users").select("id").eq("auth_id", user.id).maybeSingle();
-          currentUserId = profileData?.id || null;
-        } else if (devBypass) {
-          currentUserId = 1; // Mock dev user
-        }
+      if (user) {
+        const { data: profileData } = await supabase.from("users").select("id").eq("auth_id", user.id).maybeSingle();
+        const currentUserId = profileData?.id || null;
 
         if (currentUserId === qrData.assigned_to) {
           // Owner is viewing - redirect to management page

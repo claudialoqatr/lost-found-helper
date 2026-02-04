@@ -38,14 +38,11 @@ export default function MyTagsPage() {
   const [showUnassignDialog, setShowUnassignDialog] = useState(false);
   const [tagToUnassign, setTagToUnassign] = useState<TagWithItem | null>(null);
 
-  // Check for dev bypass
-  const devBypass = localStorage.getItem("dev_bypass") === "true";
-
   useEffect(() => {
-    if (!authLoading && !user && !devBypass) {
+    if (!authLoading && !user) {
       navigate("/auth");
     }
-  }, [user, authLoading, devBypass, navigate]);
+  }, [user, authLoading, navigate]);
 
   useEffect(() => {
     async function fetchTags() {
@@ -113,14 +110,14 @@ export default function MyTagsPage() {
         console.error("Failed to fetch tags:", err);
         setError("Failed to load your tags. Please try again.");
       } finally {
-        setLoading(false);
-      }
+      setLoading(false);
     }
+  }
 
-    if (!authLoading && (user || devBypass)) {
+    if (!authLoading && user) {
       fetchTags();
     }
-  }, [user, authLoading, devBypass]);
+  }, [user, authLoading]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
