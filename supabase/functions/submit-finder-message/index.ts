@@ -250,7 +250,7 @@ serve(async (req: Request) => {
         const resend = new Resend(resendApiKey);
         
         // Construct the messages URL - use the preview URL pattern
-        const messagesUrl = "https://loqatr.com/messages";
+        const messagesUrl = "https://app.loqatr.com/messages";
 
         const emailHtml = generateFoundItemEmail({
           ownerName: ownerName || undefined,
