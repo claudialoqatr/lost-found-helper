@@ -4,7 +4,15 @@ import { Unlink } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { ScanHistory } from "@/components/ScanHistory";
 import { UnassignTagDialog } from "@/components/UnassignTagDialog";
-import { ItemForm, ItemDetailsEditor, ContactDetailsCard, LoqatrIdCard, IconPicker } from "@/components/tag";
+import { 
+  ItemNameField, 
+  NotMyItemToggle, 
+  PrivacyToggle, 
+  ItemDetailsEditor, 
+  ContactDetailsCard, 
+  LoqatrIdCard, 
+  IconPicker 
+} from "@/components/tag";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -371,17 +379,25 @@ export default function EditTagPage() {
                 description="Update the information for your tagged item. When found, the finder will see this information."
               />
 
-              <ItemForm
+              {/* Item Name with inline icon picker */}
+              <ItemNameField
                 itemName={itemName}
                 setItemName={setItemName}
-                isPublic={isPublic}
-                setIsPublic={setIsPublic}
-                isItemOwner={isItemOwner}
-                onItemOwnerChange={handleItemOwnerChange}
+                iconPicker={<IconPicker value={iconName} onChange={setIconName} inline />}
               />
 
-              <IconPicker value={iconName} onChange={setIconName} />
+              {/* Compact contact details on mobile */}
+              <div className="lg:hidden">
+                <ContactDetailsCard user={userProfile} compact />
+              </div>
 
+              {/* Not my item toggle */}
+              <NotMyItemToggle
+                isNotMyItem={!isItemOwner}
+                onNotMyItemChange={(notMyItem) => handleItemOwnerChange(!notMyItem)}
+              />
+
+              {/* Item Details */}
               <ItemDetailsEditor
                 details={itemDetails}
                 onAdd={addDetail}
@@ -389,6 +405,7 @@ export default function EditTagPage() {
                 onUpdate={updateDetail}
               />
 
+              {/* Description */}
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
                 <Textarea
@@ -400,6 +417,21 @@ export default function EditTagPage() {
                   className="resize-none"
                 />
               </div>
+
+              {/* Privacy Toggle */}
+              <PrivacyToggle isPublic={isPublic} setIsPublic={setIsPublic} />
+
+              {/* Scan History - mobile */}
+              <div className="lg:hidden">
+                {qrCode && <ScanHistory qrCodeId={qrCode.id} />}
+              </div>
+
+              {/* Loqatr ID - subtle inline display */}
+              {qrCode && (
+                <div className="pt-4 border-t">
+                  <LoqatrIdCard loqatrId={qrCode.loqatr_id} />
+                </div>
+              )}
 
               {/* Submit Button - mobile */}
               <div className="lg:hidden space-y-3">
@@ -422,14 +454,13 @@ export default function EditTagPage() {
               </div>
             </div>
 
-            {/* Right Column */}
-            <div className="space-y-6 mt-8 lg:mt-0">
+            {/* Right Column - Desktop only */}
+            <div className="hidden lg:block space-y-6 mt-0">
               <ContactDetailsCard user={userProfile} />
-              {qrCode && <LoqatrIdCard loqatrId={qrCode.loqatr_id} />}
               {qrCode && <ScanHistory qrCodeId={qrCode.id} />}
 
               {/* Actions - desktop */}
-              <div className="hidden lg:block space-y-3">
+              <div className="space-y-3">
                 <GradientButton
                   className="w-full"
                   onClick={handleSubmit}
