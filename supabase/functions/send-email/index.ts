@@ -63,18 +63,26 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Get the raw payload for signature verification
     const payload = await req.text();
-    const headers = Object.fromEntries(req.headers);
-
-    // Verify webhook signature
-    // Supabase webhook secrets are in format: v1,whsec_<base64secret>
-    // The standardwebhooks library expects just the raw base64 secret
-    const webhookSecret = SEND_EMAIL_HOOK_SECRET.replace("v1,whsec_", "");
     
+    // Normalize headers to lowercase for standardwebhooks compatibility
+    const rawHeaders = Object.fromEntries(req.headers);
+    const headers: Record<string, string> = {};
+    for (const [key, value] of Object.entries(rawHeaders)) {
+      headers[key.toLowerCase()] = value;
+    }
+
+    // Debug: Log all incoming headers to diagnose issues
+    console.log("All incoming headers:", Object.keys(headers));
     console.log("Webhook headers received:", {
       "webhook-id": headers["webhook-id"],
       "webhook-timestamp": headers["webhook-timestamp"],
       "webhook-signature": headers["webhook-signature"] ? "present" : "missing",
     });
+
+    // Verify webhook signature
+    // Supabase webhook secrets are in format: v1,whsec_<base64secret>
+    // The standardwebhooks library expects just the raw base64 secret
+    const webhookSecret = SEND_EMAIL_HOOK_SECRET.replace("v1,whsec_", "");
     
     const wh = new Webhook(webhookSecret);
     let authPayload: AuthEmailPayload;
