@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { useBlocker } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 interface UseUnsavedChangesOptions {
   /** Function that returns true if there are unsaved changes */
@@ -9,24 +9,14 @@ interface UseUnsavedChangesOptions {
 }
 
 /**
- * Hook to detect and block navigation when there are unsaved changes.
- * Handles both in-app navigation (react-router) and browser navigation (beforeunload).
+ * Hook to detect and prompt when navigating away with unsaved changes.
+ * Works with BrowserRouter (doesn't require data router).
  */
 export function useUnsavedChanges({ hasChanges, message = "You have unsaved changes. Are you sure you want to leave?" }: UseUnsavedChangesOptions) {
   const [showDialog, setShowDialog] = useState(false);
-
-  // Block in-app navigation when there are unsaved changes
-  const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) =>
-      hasChanges() && currentLocation.pathname !== nextLocation.pathname
-  );
-
-  // Show dialog when blocker is triggered
-  useEffect(() => {
-    if (blocker.state === "blocked") {
-      setShowDialog(true);
-    }
-  }, [blocker.state]);
+  const [pendingPath, setPendingPath] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // Handle browser navigation (refresh, close tab, external links)
   useEffect(() => {
@@ -44,17 +34,33 @@ export function useUnsavedChanges({ hasChanges, message = "You have unsaved chan
 
   const confirmNavigation = useCallback(() => {
     setShowDialog(false);
-    blocker.proceed?.();
-  }, [blocker]);
+    if (pendingPath) {
+      navigate(pendingPath);
+      setPendingPath(null);
+    }
+  }, [navigate, pendingPath]);
 
   const cancelNavigation = useCallback(() => {
     setShowDialog(false);
-    blocker.reset?.();
-  }, [blocker]);
+    setPendingPath(null);
+  }, []);
+
+  /**
+   * Use this instead of navigate() when you want to check for unsaved changes
+   */
+  const safeNavigate = useCallback((path: string) => {
+    if (hasChanges()) {
+      setPendingPath(path);
+      setShowDialog(true);
+    } else {
+      navigate(path);
+    }
+  }, [hasChanges, navigate]);
 
   return {
     showDialog,
     confirmNavigation,
     cancelNavigation,
+    safeNavigate,
   };
 }

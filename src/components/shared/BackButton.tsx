@@ -8,16 +8,20 @@ interface BackButtonProps {
   /** Custom path to navigate to. If not provided, uses history.back() */
   to?: string;
   className?: string;
+  /** Optional custom click handler that overrides default navigation */
+  onClick?: () => void;
 }
 
 /**
  * Consistent back navigation button.
  */
-export function BackButton({ label = "Go Back", to, className }: BackButtonProps) {
+export function BackButton({ label = "Go Back", to, className, onClick }: BackButtonProps) {
   const navigate = useNavigate();
 
   const handleClick = () => {
-    if (to) {
+    if (onClick) {
+      onClick();
+    } else if (to) {
       navigate(to);
     } else {
       navigate(-1);

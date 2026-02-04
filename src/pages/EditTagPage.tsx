@@ -78,7 +78,7 @@ export default function EditTagPage() {
     );
   }, [itemName, isPublic, description, iconName, itemDetails, isItemOwner]);
 
-  const { showDialog, confirmNavigation, cancelNavigation } = useUnsavedChanges({
+  const { showDialog, confirmNavigation, cancelNavigation, safeNavigate } = useUnsavedChanges({
     hasChanges,
   });
 
@@ -361,7 +361,7 @@ export default function EditTagPage() {
     <AppLayout>
       <div className="container mx-auto px-4 lg:px-8 py-6 lg:py-12 pb-24">
         <div className="max-w-2xl mx-auto lg:max-w-5xl">
-          <BackButton label="Back to My Tags" to="/my-tags" className="mb-6" />
+          <BackButton label="Back to My Tags" onClick={() => safeNavigate("/my-tags")} className="mb-6" />
 
           <div className="lg:grid lg:grid-cols-2 lg:gap-12">
             {/* Left Column - Form */}
