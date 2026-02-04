@@ -4,13 +4,16 @@ import { AdminLayout, QRCodeBuilder } from "@/components/admin";
 import { useBatches } from "@/hooks/useBatches";
 import { PageHeader, LoadingSpinner, BackButton } from "@/components/shared";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { formatDistanceToNow } from "date-fns";
 import { QRCodeBatch } from "@/types";
-import { Search, Copy, Check } from "lucide-react";
+import { Search, Copy, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getBaseLoqatrIdURL } from "@/lib/qrCodeConfig";
+
+const PAGE_SIZE = 50;
 
 /**
  * Admin page for viewing batch details and downloading QR codes
@@ -23,6 +26,7 @@ export default function BatchDetailPage() {
   const [loadingQRCodes, setLoadingQRCodes] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const filteredIds = useMemo(() => {
     if (!searchQuery.trim()) return loqatrIds;
@@ -31,6 +35,17 @@ export default function BatchDetailPage() {
     );
   }, [loqatrIds, searchQuery]);
 
+  // Reset to page 1 when search query changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  const totalPages = Math.ceil(filteredIds.length / PAGE_SIZE);
+  const paginatedIds = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredIds.slice(start, start + PAGE_SIZE);
+  }, [filteredIds, currentPage]);
+
   const handleCopyUrl = async (id: string) => {
     const url = `${getBaseLoqatrIdURL()}${id}`;
     await navigator.clipboard.writeText(url);
@@ -38,7 +53,6 @@ export default function BatchDetailPage() {
     toast({ title: "URL copied", description: url });
     setTimeout(() => setCopiedId(null), 2000);
   };
-
 
   const batch = batches?.find((b) => b.id === Number(batchId));
 
@@ -183,23 +197,57 @@ export default function BatchDetailPage() {
                 {searchQuery ? "No matching QR codes found" : "No QR codes in this batch"}
               </p>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                {filteredIds.map((id) => (
-                  <button
-                    key={id}
-                    onClick={() => handleCopyUrl(id)}
-                    className="px-3 py-2 bg-muted hover:bg-muted/80 rounded text-xs font-mono text-center truncate transition-colors flex items-center justify-center gap-1 cursor-pointer"
-                    title={`Click to copy URL for ${id}`}
-                  >
-                    {copiedId === id ? (
-                      <Check className="h-3 w-3 text-primary shrink-0" />
-                    ) : (
-                      <Copy className="h-3 w-3 text-muted-foreground shrink-0" />
-                    )}
-                    <span className="truncate">{id}</span>
-                  </button>
-                ))}
-              </div>
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                  {paginatedIds.map((id) => (
+                    <button
+                      key={id}
+                      onClick={() => handleCopyUrl(id)}
+                      className="px-3 py-2 bg-muted hover:bg-muted/80 rounded text-xs font-mono text-center truncate transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                      title={`Click to copy URL for ${id}`}
+                    >
+                      {copiedId === id ? (
+                        <Check className="h-3 w-3 text-primary shrink-0" />
+                      ) : (
+                        <Copy className="h-3 w-3 text-muted-foreground shrink-0" />
+                      )}
+                      <span className="truncate">{id}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between pt-4 mt-4 border-t">
+                    <p className="text-sm text-muted-foreground">
+                      Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredIds.length)} of {filteredIds.length}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        Previous
+                      </Button>
+                      <span className="text-sm text-muted-foreground px-2">
+                        Page {currentPage} of {totalPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
