@@ -470,6 +470,9 @@ export type Database = {
     }
     Functions: {
       get_user_id: { Args: never; Returns: number }
+      is_super_admin:
+        | { Args: never; Returns: boolean }
+        | { Args: { check_user_id: number }; Returns: boolean }
       reveal_item_contact: {
         Args: { current_scan_id: number; target_qr_id: string }
         Returns: {
