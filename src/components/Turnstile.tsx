@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef } from "react";
 
 interface TurnstileProps {
   siteKey: string;
@@ -37,30 +37,36 @@ export function Turnstile({
 }: TurnstileProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
-  const scriptLoadedRef = useRef(false);
-
-  const renderWidget = useCallback(() => {
-    if (!containerRef.current || !window.turnstile) return;
-    
-    // Remove existing widget if any
-    if (widgetIdRef.current) {
-      try {
-        window.turnstile.remove(widgetIdRef.current);
-      } catch (e) {
-        // Widget might already be removed
-      }
-    }
-
-    widgetIdRef.current = window.turnstile.render(containerRef.current, {
-      sitekey: siteKey,
-      callback: onSuccess,
-      "error-callback": onError,
-      "expired-callback": onExpire,
-      theme: "auto",
-    });
-  }, [siteKey, onSuccess, onError, onExpire]);
+  const renderedRef = useRef(false);
+  
+  // Store callbacks in refs to avoid re-renders causing widget recreation
+  const onSuccessRef = useRef(onSuccess);
+  const onErrorRef = useRef(onError);
+  const onExpireRef = useRef(onExpire);
+  
+  // Update refs when callbacks change
+  onSuccessRef.current = onSuccess;
+  onErrorRef.current = onError;
+  onExpireRef.current = onExpire;
 
   useEffect(() => {
+    // Prevent double rendering
+    if (renderedRef.current) return;
+    
+    const renderWidget = () => {
+      if (!containerRef.current || !window.turnstile || renderedRef.current) return;
+      
+      renderedRef.current = true;
+
+      widgetIdRef.current = window.turnstile.render(containerRef.current, {
+        sitekey: siteKey,
+        callback: (token: string) => onSuccessRef.current(token),
+        "error-callback": () => onErrorRef.current?.(),
+        "expired-callback": () => onExpireRef.current?.(),
+        theme: "auto",
+      });
+    };
+
     // Check if script is already loaded
     if (window.turnstile) {
       renderWidget();
@@ -75,16 +81,13 @@ export function Turnstile({
     }
 
     // Load Turnstile script
-    if (!scriptLoadedRef.current) {
-      scriptLoadedRef.current = true;
-      window.onloadTurnstileCallback = renderWidget;
-      
-      const script = document.createElement("script");
-      script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback";
-      script.async = true;
-      script.defer = true;
-      document.head.appendChild(script);
-    }
+    window.onloadTurnstileCallback = renderWidget;
+    
+    const script = document.createElement("script");
+    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback";
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
 
     return () => {
       if (widgetIdRef.current && window.turnstile) {
@@ -94,8 +97,9 @@ export function Turnstile({
           // Widget might already be removed
         }
       }
+      renderedRef.current = false;
     };
-  }, [renderWidget]);
+  }, [siteKey]);
 
   return <div ref={containerRef} className={className} />;
 }
