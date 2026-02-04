@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { PhoneInput } from "@/components/PhoneInput";
 import { Turnstile } from "@/components/Turnstile";
+import { PasswordStrengthIndicator, isPasswordStrong } from "@/components/PasswordStrengthIndicator";
 import { toast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import logoDark from "@/assets/logo-dark.svg";
@@ -28,9 +29,16 @@ const forgotPasswordSchema = z.object({
   email: z.string().email("Please enter a valid email"),
 });
 
-const signupSchema = loginSchema.extend({
+const signupSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Please enter a valid email"),
   phone: z.string().min(10, "Please enter a valid phone number"),
+  password: z.string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(/[A-Z]/, "Password must contain an uppercase letter")
+    .regex(/[a-z]/, "Password must contain a lowercase letter")
+    .regex(/\d/, "Password must contain a number")
+    .regex(/[!@#$%^&*(),.?":{}|<>]/, "Password must contain a special character"),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
@@ -266,7 +274,7 @@ export default function AuthPage() {
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Name</FormLabel>
+                      <FormLabel>Name <span className="text-destructive">*</span></FormLabel>
                       <FormControl>
                         <Input 
                           placeholder="Your name" 
@@ -282,7 +290,7 @@ export default function AuthPage() {
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email</FormLabel>
+                      <FormLabel>Email <span className="text-destructive">*</span></FormLabel>
                       <FormControl>
                         <Input 
                           type="email" 
@@ -299,7 +307,7 @@ export default function AuthPage() {
                   name="phone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Phone Number</FormLabel>
+                      <FormLabel>Phone Number <span className="text-destructive">*</span></FormLabel>
                       <FormControl>
                         <PhoneInput 
                           value={field.value}
@@ -316,7 +324,7 @@ export default function AuthPage() {
                   name="password"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Password</FormLabel>
+                      <FormLabel>Password <span className="text-destructive">*</span></FormLabel>
                       <FormControl>
                         <Input 
                           type="password" 
@@ -324,6 +332,7 @@ export default function AuthPage() {
                           {...field} 
                         />
                       </FormControl>
+                      <PasswordStrengthIndicator password={field.value} />
                       <FormMessage />
                     </FormItem>
                   )}
@@ -333,7 +342,7 @@ export default function AuthPage() {
                   name="confirmPassword"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Confirm Password</FormLabel>
+                      <FormLabel>Confirm Password <span className="text-destructive">*</span></FormLabel>
                       <FormControl>
                         <Input 
                           type="password" 
