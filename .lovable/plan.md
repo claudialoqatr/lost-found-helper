@@ -1,22 +1,31 @@
 
-# Enhanced Super Admin QR Code Batch Suite
+# Circular Shape QR Code with Transparent Background
 
 ## Overview
 
-This plan upgrades the existing QR code builder with advanced styling controls, improved error correction options, higher resolution output, and better memory management for large batch generation.
+Update the QR code configuration to produce circular-shaped QR codes (like the reference image) with transparent backgrounds when the "Circular Shape" toggle is enabled.
 
-## Changes Summary
+## Changes Required
 
-### 1. Update QR Code Configuration (`src/lib/qrCodeConfig.ts`)
+### 1. Update `src/lib/qrCodeConfig.ts`
 
-Add support for:
-- **Error Correction Levels**: L (7%), M (15%), Q (25%), H (30%)
-- **Higher Resolution**: Increase from 300px to 600px for print-ready quality
-- **Liquid Design Mode**: New `extra-rounded` dot type for organic/bubbly look
+**Current behavior:** The `square` parameter only controls dot styling (`type: 'square'` vs `'extra-rounded'`)
 
+**New behavior:** The `square` parameter will also control:
+- **`shape`**: Set to `'circle'` when circular mode is enabled (adds organic random dots around edges)
+- **`backgroundOptions.color`**: Set to `'transparent'` when circular mode is enabled
+- **`dotsOptions.type`**: Use `'rounded'` for the bubbly liquid look with circle shape
+
+| Property | Square Mode | Circular Mode |
+|----------|-------------|---------------|
+| `shape` | `'square'` | `'circle'` |
+| `backgroundOptions.color` | `'#FFFFFF'` | `'transparent'` |
+| `dotsOptions.type` | `'square'` | `'rounded'` |
+| `cornersSquareOptions.type` | `'square'` | `'extra-rounded'` |
+| `cornersDotOptions.type` | `'square'` | `'dot'` |
+
+**Updated Config:**
 ```typescript
-export type ErrorCorrectionLevel = "L" | "M" | "Q" | "H";
-
 export const qrCodeConfig = (
   data: string,
   gradient: boolean = false,
@@ -28,142 +37,80 @@ export const qrCodeConfig = (
   height: 600,
   data,
   margin: 10,
+  shape: square ? "square" : "circle",  // NEW: Circle shape for organic look
   qrOptions: {
     errorCorrectionLevel,
   },
   dotsOptions: {
     color: gradient ? undefined : "#000000",
-    type: square ? "square" : "extra-rounded",  // "extra-rounded" for liquid/bubbly look
+    type: square ? "square" : "rounded",  // Changed from extra-rounded to rounded
     gradient: gradient ? { ... } : undefined,
   },
-  // ... rest of config
+  backgroundOptions: {
+    color: square ? "#FFFFFF" : "transparent",  // NEW: Transparent for circular
+  },
+  cornersSquareOptions: {
+    type: square ? "square" : "extra-rounded",
+  },
+  cornersDotOptions: {
+    type: square ? "square" : "dot",
+  },
+  // ... rest unchanged
 });
 ```
 
-### 2. Update QR Code Builder Component (`src/components/admin/QRCodeBuilder.tsx`)
+### 2. Update `src/components/admin/QRCodeBuilder.tsx`
 
-**New Features:**
-| Feature | Control Type | Description |
-|---------|--------------|-------------|
-| Circular Shape | Switch | Toggle between square and rounded dots with organic corners |
-| Brand Gradient | Switch | Apply purple-to-blue radial gradient |
-| Show Logo | Switch | Display logo in center with hidden background dots |
-| Error Correction | Select dropdown | Choose L/M/Q/H levels (default: M) |
-| Mark as Printed | Button | Update batch status in database |
+Update the preview container styling to show a checkered background pattern when circular mode is enabled, so users can see the transparent background effect in the preview:
 
-**UI Layout:**
-- Split settings into "Design" and "Technical" sections
-- Add Settings2 icon for technical section header
-- Include Printer button alongside Download button
-- Both progress bars visible during generation
+```typescript
+<div
+  ref={previewRef}
+  className={cn(
+    "border rounded-lg p-4",
+    square ? "bg-white" : "bg-[url('/checkered-pattern.svg')] bg-repeat"
+  )}
+/>
+```
 
-**Memory-Safe Generation:**
-- Continue using iterative loop (already implemented)
-- Add files directly to ZIP during generation instead of storing in array first
+Alternatively, use a CSS pattern for the checkered background:
+```typescript
+<div
+  ref={previewRef}
+  className="border rounded-lg p-4"
+  style={{
+    background: square 
+      ? '#FFFFFF' 
+      : 'repeating-conic-gradient(#e5e7eb 0% 25%, #fff 0% 50%) 50% / 20px 20px'
+  }}
+/>
+```
 
-### 3. Update BatchDetailPage (`src/pages/admin/BatchDetailPage.tsx`)
+### 3. Update Label Description
 
-Add `onPrinted` callback prop to pass the `markAsPrinted` mutation to QRCodeBuilder.
+Update the toggle description to be more accurate:
+
+```typescript
+<Label htmlFor="square" className="flex flex-col gap-1">
+  <span>Circular Shape</span>
+  <span className="font-normal text-xs text-muted-foreground">
+    Round shape with transparent background
+  </span>
+</Label>
+```
 
 ---
 
 ## Technical Details
 
-### Error Correction Level Select
-
-```typescript
-<Select value={errorLevel} onValueChange={setErrorLevel}>
-  <SelectTrigger className="w-full">
-    <SelectValue placeholder="Error Correction" />
-  </SelectTrigger>
-  <SelectContent>
-    <SelectItem value="L">Low (7%)</SelectItem>
-    <SelectItem value="M">Medium (15%)</SelectItem>
-    <SelectItem value="Q">Quartile (25%)</SelectItem>
-    <SelectItem value="H">High (30%)</SelectItem>
-  </SelectContent>
-</Select>
-```
-
-### Updated Props Interface
-
-```typescript
-interface QRCodeBuilderProps {
-  batch: QRCodeBatch;
-  loqatrIds: string[];
-  onDownloaded: () => void;
-  onPrinted: () => void;  // New prop for marking as printed
-}
-```
-
-### Optimized Download Function
-
-```typescript
-async function downloadBatch() {
-  setIsDownloading(true);
-  const zip = new JSZip();
-  const generator = new QRCodeStyling(qrCodeConfig("", gradient, showLogo, square, errorLevel));
-
-  // Iterative generation - memory safe for large batches
-  for (let i = 0; i < loqatrIds.length; i++) {
-    const url = `${getBaseLoqatrIdURL()}${loqatrIds[i]}?scan=true`;
-    generator.update(qrCodeConfig(url, gradient, showLogo, square, errorLevel));
-    
-    const blob = await generator.getRawData("svg");
-    if (blob) zip.file(`${loqatrIds[i]}.svg`, blob);
-    
-    setProgress(p => ({ ...p, generate: Math.round(((i + 1) / loqatrIds.length) * 100) }));
-  }
-
-  // Generate ZIP with progress tracking
-  const content = await zip.generateAsync({ type: "blob" }, (meta) => {
-    setProgress(p => ({ ...p, zip: Math.round(meta.percent) }));
-  });
-
-  // Trigger download and update database
-  // ...
-}
-```
-
----
+The `shape: 'circle'` option from qr-code-styling:
+- Crops the QR code into a circular shape
+- Adds random decorative dots around the edges for an organic appearance
+- Combined with transparent background, creates the exact look shown in the reference image
 
 ## Files to Modify
 
 | File | Changes |
 |------|---------|
-| `src/lib/qrCodeConfig.ts` | Add ErrorCorrectionLevel type, increase resolution to 600px, add errorCorrectionLevel parameter |
-| `src/components/admin/QRCodeBuilder.tsx` | Add error correction select, reorganize UI with Design/Technical sections, add Printer button, update icons |
-| `src/pages/admin/BatchDetailPage.tsx` | Pass `onPrinted` callback to QRCodeBuilder |
-
----
-
-## UI Preview
-
-The settings card will be organized as:
-
-```text
-+----------------------------------+
-| Style Settings                   |
-+----------------------------------+
-|                                  |
-| DESIGN                           |
-| [Switch] Circular Shape          |
-|          Organic rounded corners |
-|                                  |
-| [Switch] Brand Gradient          |
-|          Purple to blue gradient |
-|                                  |
-| [Switch] Show Logo               |
-|          Display logo in center  |
-|                                  |
-| TECHNICAL                        |
-| Error Correction                 |
-| [Select: Low | Medium | ...]     |
-|                                  |
-| ================================ |
-| Generating SVGs         [75%]   |
-| [=============------]           |
-|                                  |
-| [Download Batch (50)]  [Print]  |
-+----------------------------------+
-```
+| `src/lib/qrCodeConfig.ts` | Add `shape` property, update `backgroundOptions.color` to be conditional, change circular dots to `'rounded'` |
+| `src/components/admin/QRCodeBuilder.tsx` | Add checkered background preview for transparent mode, update label text |
