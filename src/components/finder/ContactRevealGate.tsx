@@ -6,8 +6,11 @@ import { Turnstile } from "@/components/Turnstile";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
-// Turnstile site key - this is a publishable key
-const TURNSTILE_SITE_KEY = "0x4AAAAAABfQhbFMlvEyDxaH";
+// Cloudflare Turnstile test keys for development
+// Replace with your production keys from https://dash.cloudflare.com/turnstile
+// Test site key that always passes: 1x00000000000000000000AA
+// Test site key that always fails: 2x00000000000000000000AB
+const TURNSTILE_SITE_KEY = "1x00000000000000000000AA";
 
 interface OwnerContact {
   owner_name: string;
@@ -16,17 +19,25 @@ interface OwnerContact {
   whatsapp_url: string | null;
 }
 
+interface LocationData {
+  latitude: number | null;
+  longitude: number | null;
+  address: string | null;
+}
+
 interface ContactRevealGateProps {
-  scanId: number | null;
+  qrCodeId: number;
   qrIdentifier: string;
   displayOwnerName: string;
+  location: LocationData;
   onContactRevealed: (contact: OwnerContact) => void;
 }
 
 export function ContactRevealGate({
-  scanId,
+  qrCodeId,
   qrIdentifier,
   displayOwnerName,
+  location,
   onContactRevealed,
 }: ContactRevealGateProps) {
   const { toast } = useToast();
@@ -49,7 +60,7 @@ export function ContactRevealGate({
   };
 
   const handleRevealContact = async () => {
-    if (!turnstileToken || !scanId) {
+    if (!turnstileToken) {
       toast({
         title: "Please complete verification",
         description: "Complete the captcha to reveal contact information.",
@@ -62,9 +73,12 @@ export function ContactRevealGate({
     try {
       const { data, error } = await supabase.functions.invoke("reveal-contact", {
         body: {
-          scan_id: scanId,
+          qr_code_id: qrCodeId,
           qr_identifier: qrIdentifier,
           turnstile_token: turnstileToken,
+          latitude: location.latitude,
+          longitude: location.longitude,
+          address: location.address,
         },
       });
 
@@ -135,7 +149,7 @@ export function ContactRevealGate({
           <Button
             className="w-full gradient-loqatr text-primary-foreground h-12"
             onClick={handleRevealContact}
-            disabled={!turnstileToken || revealing || !scanId}
+            disabled={!turnstileToken || revealing}
           >
             {revealing ? (
               <>
@@ -149,12 +163,6 @@ export function ContactRevealGate({
               </>
             )}
           </Button>
-
-          {!scanId && (
-            <p className="text-xs text-muted-foreground text-center">
-              Waiting for scan to be recorded...
-            </p>
-          )}
         </div>
       </CardContent>
     </Card>
