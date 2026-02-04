@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { QRCodeData, ItemInfo, ItemDetail } from "@/types";
 
@@ -17,30 +18,32 @@ interface UseQRCodeOptions {
   fetchDetails?: boolean;
 }
 
+interface QRCodeQueryResult {
+  qrCode: QRCodeData | null;
+  item: ItemInfo | null;
+  itemDetails: ItemDetail[];
+}
+
 /**
  * Hook to fetch and manage QR code data, associated item, and item details.
+ * Uses TanStack Query for caching and stale-while-revalidate strategy.
  */
 export function useQRCode(
   loqatrId: string | undefined,
   options: UseQRCodeOptions = {}
 ): UseQRCodeReturn {
   const { fetchDetails = true } = options;
+  const queryClient = useQueryClient();
 
-  const [qrCode, setQRCode] = useState<QRCodeData | null>(null);
-  const [item, setItem] = useState<ItemInfo | null>(null);
-  const [itemDetails, setItemDetails] = useState<ItemDetail[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  // Local state for item details (can be modified by forms)
+  const [localItemDetails, setLocalItemDetails] = useState<ItemDetail[]>([]);
 
-  const fetchData = useCallback(async () => {
-    if (!loqatrId) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ["qrCode", loqatrId, fetchDetails],
+    queryFn: async (): Promise<QRCodeQueryResult> => {
+      if (!loqatrId) {
+        return { qrCode: null, item: null, itemDetails: [] };
+      }
 
       // Fetch QR code by loqatr_id
       const { data: qrData, error: qrError } = await supabase
@@ -52,17 +55,15 @@ export function useQRCode(
       if (qrError) throw qrError;
 
       if (!qrData) {
-        setError(new Error("QR code not found"));
-        setQRCode(null);
-        setItem(null);
-        return;
+        throw new Error("QR code not found");
       }
 
-      setQRCode(qrData);
+      let itemData: ItemInfo | null = null;
+      let detailsData: ItemDetail[] = [];
 
       // Fetch item data if exists
       if (qrData.item_id && fetchDetails) {
-        const { data: itemData, error: itemError } = await supabase
+        const { data: fetchedItem, error: itemError } = await supabase
           .from("items")
           .select("*")
           .eq("id", qrData.item_id)
@@ -70,44 +71,68 @@ export function useQRCode(
 
         if (itemError) throw itemError;
 
-        if (itemData) {
-          setItem(itemData);
+        if (fetchedItem) {
+          itemData = fetchedItem;
 
           // Fetch item details
-          const { data: detailsData } = await supabase
+          const { data: rawDetails } = await supabase
             .from("item_details")
             .select("*, item_detail_fields(*)")
-            .eq("item_id", itemData.id);
+            .eq("item_id", fetchedItem.id);
 
-          if (detailsData) {
-            const mappedDetails: ItemDetail[] = detailsData.map((d) => ({
+          if (rawDetails) {
+            detailsData = rawDetails.map((d) => ({
               id: crypto.randomUUID(),
               fieldType: d.item_detail_fields?.type || "Other",
               value: d.value,
             }));
-            setItemDetails(mappedDetails);
           }
         }
       }
-    } catch (err) {
-      console.error("Error fetching QR code data:", err);
-      setError(err as Error);
-    } finally {
-      setLoading(false);
-    }
-  }, [loqatrId, fetchDetails]);
 
+      return {
+        qrCode: qrData,
+        item: itemData,
+        itemDetails: detailsData,
+      };
+    },
+    enabled: !!loqatrId,
+    staleTime: 2 * 60 * 1000, // Consider fresh for 2 minutes
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+  });
+
+  // Sync local state with query result when data changes
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (data?.itemDetails) {
+      setLocalItemDetails(data.itemDetails);
+    }
+  }, [data?.itemDetails]);
+
+  const handleRefetch = async () => {
+    await refetch();
+  };
 
   return {
-    qrCode,
-    item,
-    itemDetails,
-    loading,
-    error,
-    setItemDetails,
-    refetch: fetchData,
+    qrCode: data?.qrCode ?? null,
+    item: data?.item ?? null,
+    itemDetails: localItemDetails,
+    loading: isLoading,
+    error: error as Error | null,
+    setItemDetails: setLocalItemDetails,
+    refetch: handleRefetch,
+  };
+}
+
+/**
+ * Invalidate the QR code cache (useful after updates)
+ */
+export function useInvalidateQRCode() {
+  const queryClient = useQueryClient();
+  return (loqatrId?: string) => {
+    if (loqatrId) {
+      queryClient.invalidateQueries({ queryKey: ["qrCode", loqatrId] });
+    } else {
+      queryClient.invalidateQueries({ queryKey: ["qrCode"] });
+    }
   };
 }

@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useUserProfile } from "@/hooks/useUserProfile";
+import { useMyTags } from "@/hooks/useMyTags";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,19 +11,15 @@ import { Tag, QrCode, Globe, Lock } from "lucide-react";
 import { format } from "date-fns";
 import { UnassignTagDialog } from "@/components/UnassignTagDialog";
 import { useToast } from "@/hooks/use-toast";
-import { notifyTagUnassigned } from "@/lib/notifications";
 import { getIconByName } from "@/components/tag";
 import type { TagWithItem } from "@/types";
+import { useState } from "react";
 
 export default function MyTagsPage() {
   const { user, loading: authLoading } = useAuth();
-  const { userProfile, loading: profileLoading } = useUserProfile();
+  const { tags, loading, error, unassignTag, isUnassigning } = useMyTags();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [tags, setTags] = useState<TagWithItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [unassigning, setUnassigning] = useState(false);
   const [showUnassignDialog, setShowUnassignDialog] = useState(false);
   const [tagToUnassign, setTagToUnassign] = useState<TagWithItem | null>(null);
 
@@ -33,70 +28,6 @@ export default function MyTagsPage() {
       navigate("/auth");
     }
   }, [user, authLoading, navigate]);
-
-  useEffect(() => {
-    async function fetchTags() {
-      const userId = userProfile?.id;
-
-      if (!userId) {
-        setTags([]);
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const { data: qrcodeData, error: fetchError } = await supabase
-          .from("qrcodes")
-          .select(`
-            id,
-            loqatr_id,
-            status,
-            is_public,
-            created_at,
-            item:items (
-              id,
-              name,
-              description,
-              icon_name
-            )
-          `)
-          .eq("status", "active")
-          .eq("assigned_to", userId)
-          .order("created_at", { ascending: false });
-
-        if (fetchError) throw fetchError;
-
-        // Fetch last scan for each tag
-        const tagsWithScans: TagWithItem[] = await Promise.all(
-          (qrcodeData || []).map(async (tag) => {
-            const { data: scanData } = await supabase
-              .from("scans")
-              .select("scanned_at")
-              .eq("qr_code_id", tag.id)
-              .order("scanned_at", { ascending: false })
-              .limit(1)
-              .maybeSingle();
-
-            return {
-              ...tag,
-              last_scanned_at: scanData?.scanned_at || null,
-            } as TagWithItem;
-          })
-        );
-
-        setTags(tagsWithScans);
-      } catch (err) {
-        console.error("Failed to fetch tags:", err);
-        setError("Failed to load your tags. Please try again.");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    if (!authLoading && !profileLoading && user && userProfile) {
-      fetchTags();
-    }
-  }, [user, authLoading, profileLoading, userProfile]);
 
   const getPrivacyBadge = (isPublic: boolean) => {
     if (isPublic) {
@@ -116,33 +47,8 @@ export default function MyTagsPage() {
   const handleUnassign = async () => {
     if (!tagToUnassign) return;
 
-    setUnassigning(true);
     try {
-      const itemName = tagToUnassign.item?.name || "Unknown item";
-
-      if (tagToUnassign.item?.id) {
-        await supabase.from("item_details").delete().eq("item_id", tagToUnassign.item.id);
-        await supabase.from("items").delete().eq("id", tagToUnassign.item.id);
-      }
-
-      const { error: qrError } = await supabase
-        .from("qrcodes")
-        .update({
-          assigned_to: null,
-          item_id: null,
-          is_public: false,
-          status: "unassigned",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", tagToUnassign.id);
-
-      if (qrError) throw qrError;
-
-      if (userProfile?.id) {
-        await notifyTagUnassigned(userProfile.id, itemName);
-      }
-
-      setTags(tags.filter(t => t.id !== tagToUnassign.id));
+      await unassignTag(tagToUnassign);
 
       toast({
         title: "Tag unassigned",
@@ -158,12 +64,10 @@ export default function MyTagsPage() {
         description: "Failed to unassign tag. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setUnassigning(false);
     }
   };
 
-  if (authLoading || profileLoading || loading) {
+  if (authLoading || loading) {
     return (
       <AppLayout>
         <div className="container mx-auto px-4 py-8">
@@ -197,7 +101,7 @@ export default function MyTagsPage() {
         {error && (
           <Card className="border-destructive/50 bg-destructive/10 mb-6">
             <CardContent className="pt-6">
-              <p className="text-destructive">{error}</p>
+              <p className="text-destructive">{error.message}</p>
             </CardContent>
           </Card>
         )}
@@ -275,7 +179,7 @@ export default function MyTagsPage() {
         open={showUnassignDialog}
         onOpenChange={setShowUnassignDialog}
         onConfirm={handleUnassign}
-        isLoading={unassigning}
+        isLoading={isUnassigning}
         tagId={tagToUnassign?.loqatr_id}
       />
     </AppLayout>
