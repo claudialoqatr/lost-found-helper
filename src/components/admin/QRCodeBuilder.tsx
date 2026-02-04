@@ -25,6 +25,52 @@ interface QRCodeBuilderProps {
   onPrinted: () => void;
 }
 
+// Process QR codes in parallel chunks for better performance
+const CHUNK_SIZE = 10;
+
+/**
+ * Generate a single QR code SVG using its own QRCodeStyling instance
+ */
+async function generateSingleQRCode(
+  loqatrId: string,
+  gradient: boolean,
+  showLogo: boolean,
+  square: boolean,
+  errorLevel: ErrorCorrectionLevel
+): Promise<{ id: string; svg: Blob | null }> {
+  const qrValue = `${getBaseLoqatrIdURL()}${loqatrId}?scan=true`;
+  const generator = new QRCodeStyling(
+    qrCodeConfig(qrValue, gradient, showLogo, square, errorLevel)
+  );
+  const rawData = await generator.getRawData("svg");
+  // getRawData can return Blob or Buffer - ensure we have a Blob
+  const svg = rawData instanceof Blob ? rawData : null;
+  return { id: loqatrId, svg };
+}
+
+/**
+ * Process a chunk of QR codes in parallel
+ */
+async function processChunk(
+  chunk: string[],
+  gradient: boolean,
+  showLogo: boolean,
+  square: boolean,
+  errorLevel: ErrorCorrectionLevel
+): Promise<Map<string, Blob>> {
+  const results = await Promise.all(
+    chunk.map((id) => generateSingleQRCode(id, gradient, showLogo, square, errorLevel))
+  );
+
+  const map = new Map<string, Blob>();
+  for (const result of results) {
+    if (result.svg) {
+      map.set(result.id, result.svg);
+    }
+  }
+  return map;
+}
+
 /**
  * QR code preview and batch download component with advanced styling controls
  */
@@ -68,24 +114,34 @@ export function QRCodeBuilder({ batch, loqatrIds, onDownloaded, onPrinted }: QRC
 
     setIsDownloading(true);
     const zip = new JSZip();
-    const generator = new QRCodeStyling(
-      qrCodeConfig("", gradient, showLogo, square, errorLevel)
-    );
 
     try {
-      // Iterative generation - memory safe for large batches
-      for (let i = 0; i < loqatrIds.length; i++) {
-        const qrValue = `${getBaseLoqatrIdURL()}${loqatrIds[i]}?scan=true`;
-        generator.update(qrCodeConfig(qrValue, gradient, showLogo, square, errorLevel));
+      // Split loqatrIds into chunks for parallel processing
+      const chunks: string[][] = [];
+      for (let i = 0; i < loqatrIds.length; i += CHUNK_SIZE) {
+        chunks.push(loqatrIds.slice(i, i + CHUNK_SIZE));
+      }
 
-        const svg = await generator.getRawData("svg");
-        if (svg) {
-          zip.file(`${loqatrIds[i]}.svg`, svg);
+      // Track unique IDs to prevent any possibility of duplication
+      const processedIds = new Set<string>();
+      let completed = 0;
+
+      // Process chunks sequentially, but QR codes within each chunk in parallel
+      for (const chunk of chunks) {
+        const results = await processChunk(chunk, gradient, showLogo, square, errorLevel);
+
+        // Add to ZIP, ensuring no duplicates
+        for (const [id, svg] of results) {
+          if (!processedIds.has(id)) {
+            processedIds.add(id);
+            zip.file(`${id}.svg`, svg);
+          }
         }
 
+        completed += chunk.length;
         setProgress((prev) => ({
           ...prev,
-          generate: Math.round(((i + 1) / loqatrIds.length) * 100),
+          generate: Math.round((completed / loqatrIds.length) * 100),
         }));
       }
 
@@ -107,7 +163,7 @@ export function QRCodeBuilder({ batch, loqatrIds, onDownloaded, onPrinted }: QRC
 
       toast({
         title: "Download complete",
-        description: `${loqatrIds.length} QR codes downloaded as batch-${batch.id}.zip`,
+        description: `${processedIds.size} QR codes downloaded as batch-${batch.id}.zip`,
       });
     } catch (error) {
       toast({
