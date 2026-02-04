@@ -1,182 +1,167 @@
 
-# FinderPage Refactoring Plan
+
+# Admin User Re-verification System
 
 ## Overview
 
-This plan refactors the 500+ line `FinderPage.tsx` into smaller, focused modules following the existing codebase patterns. The goal is to improve maintainability, testability, and code reuse without changing any functionality.
+Create an admin-only page and edge function that allows super admins to send re-verification emails to migrated users one at a time. Each user will receive a branded email with a Supabase-generated invite link to set up their account properly.
 
-## Architecture
+---
+
+## What Gets Built
+
+### 1. New Admin Page: User Management
+
+A new admin page at `/admin/users` where super admins can:
+- View all migrated users (those who have never signed in)
+- See each user's email and verification status
+- Click a button to send a re-verification email to individual users
+- See success/error feedback after sending
+
+### 2. Edge Function: reverify-user
+
+A secure edge function that:
+- Accepts a single email address
+- Generates a legitimate Supabase invite link
+- Sends a branded email via Resend
+- Returns success/error response
+
+### 3. Email Template: Account Migration
+
+A new email template explaining:
+- Their account has been migrated to the new system
+- They need to click the link to set up their account
+- Styled consistently with existing LOQATR emails
+
+---
+
+## User Flow
 
 ```text
-Before (monolithic):
-+------------------------------------------+
-|              FinderPage.tsx              |
-|  - Location tracking logic               |
-|  - Data fetching (QR, item, owner name)  |
-|  - Owner notification logic              |
-|  - Message form state + submission       |
-|  - Display name calculation              |
-|  - All JSX rendering (~220 lines)        |
-+------------------------------------------+
-
-After (modular):
-+------------------------------------------+
-|              FinderPage.tsx (~150 lines) |
-|  - Orchestration + routing logic         |
-|  - Minimal state (revealedContact)       |
-|  - Composition of child components       |
-+------------------------------------------+
-            |
-            v
-+-------------------+  +------------------------+
-| useLocationData   |  | useFinderPageData      |
-| (new hook)        |  | (new hook)             |
-| - Geolocation API |  | - QR code fetching     |
-| - Reverse geocode |  | - Item + details       |
-| - Address lookup  |  | - Owner name (public)  |
-+-------------------+  | - Scan notification    |
-                       | - Display name helper  |
-                       +------------------------+
-            |
-            v
-+-------------------+  +------------------------+  +----------------------+
-| FinderHeader      |  | ItemDetailsCard        |  | PrivateMessageForm   |
-| (new component)   |  | (new component)        |  | (new component)      |
-| - Logo + auth btns|  | - Item details list    |  | - Form fields        |
-+-------------------+  | - Description display  |  | - Validation + send  |
-                       +------------------------+  | - Success state      |
-                                                   +----------------------+
+Admin Dashboard                    Edge Function                 User
+      |                                  |                         |
+      |  Click "Send Invite"             |                         |
+      |--------------------------------->|                         |
+      |                                  |                         |
+      |              Generate Supabase   |                         |
+      |              invite link         |                         |
+      |                                  |                         |
+      |              Send email via      |                         |
+      |              Resend              |                         |
+      |                                  |------------------------>|
+      |                                  |     "Set Up Account"    |
+      |  Success message                 |         email           |
+      |<---------------------------------|                         |
+      |                                  |                         |
+      |                                  |   User clicks link      |
+      |                                  |<------------------------|
+      |                                  |                         |
+      |                                  |   Supabase handles      |
+      |                                  |   verification +        |
+      |                                  |   password setup        |
+      |                                  |                         |
+      |                                  |   User redirected       |
+      |                                  |   to app, logged in     |
+      |                                  |------------------------>|
 ```
+
+---
 
 ## Files to Create
 
-### 1. `src/hooks/useLocationData.ts`
-**Purpose:** Encapsulate geolocation and reverse geocoding logic
+| File | Purpose |
+|------|---------|
+| `src/pages/admin/UsersPage.tsx` | Admin page showing migrated users with invite buttons |
+| `src/components/admin/UsersTable.tsx` | Table component displaying users and their status |
+| `src/components/admin/InviteUserDialog.tsx` | Confirmation dialog before sending invite |
+| `src/hooks/useMigratedUsers.ts` | Hook to fetch migrated users from auth.users |
+| `src/hooks/useReverifyUser.ts` | Hook to call the reverify-user edge function |
+| `supabase/functions/reverify-user/index.ts` | Edge function to generate link and send email |
+| `supabase/functions/send-email/_templates/reverify.ts` | Email template for account migration |
 
-**Responsibilities:**
-- Request browser geolocation
-- Reverse geocode coordinates to address (Nominatim API)
-- Manage loading state
-- Handle errors gracefully
+## Files to Modify
 
-**Interface:**
-```typescript
-interface UseLocationDataReturn {
-  location: LocationData;
-  loading: boolean;
-  refresh: () => void;
-}
+| File | Change |
+|------|--------|
+| `src/App.tsx` | Add route for `/admin/users` |
+| `src/components/admin/AdminLayout.tsx` | Add "Users" nav item |
+| `src/components/admin/index.ts` | Export new components |
+| `supabase/config.toml` | Register reverify-user function |
+
+---
+
+## Technical Details
+
+### Edge Function Security
+
+The function requires an `x-admin-secret` header matching a new secret `REVERIFY_ADMIN_SECRET`. This prevents unauthorized access while allowing admin-triggered requests.
+
+### Database Query for Migrated Users
+
+```sql
+SELECT id, email, email_confirmed_at, last_sign_in_at, created_at
+FROM auth.users
+WHERE last_sign_in_at IS NULL
+ORDER BY created_at DESC
 ```
 
-### 2. `src/hooks/useFinderPageData.ts`
-**Purpose:** Handle all data fetching and routing logic for the finder page
+This query runs via the Supabase Admin API in the edge function (service role access required).
 
-**Responsibilities:**
-- Fetch QR code by loqatr_id
-- Redirect unclaimed tags to `/tag/:code`
-- Redirect owner scans to `/my-tags/:code`
-- Fetch item and item details
-- Fetch owner's first name (for public tags)
-- Trigger owner notification on physical scan (`?scan=true`)
-- Provide `getDisplayOwnerName()` helper
+### Invite Link Generation
 
-**Interface:**
 ```typescript
-interface UseFinderPageDataReturn {
-  loading: boolean;
-  qrCode: QRCodeData | null;
-  item: ItemInfo | null;
-  itemDetails: ItemDetailDisplay[];
-  getDisplayOwnerName: () => string;
-  setQRCode: (qr: QRCodeData) => void;
-}
+const { data, error } = await supabase.auth.admin.generateLink({
+  type: "invite",
+  email: userEmail,
+  options: {
+    redirectTo: `${siteUrl}/auth`
+  }
+});
+// data.properties.action_link contains the invite URL
 ```
 
-### 3. `src/components/finder/FinderHeader.tsx`
-**Purpose:** Reusable header for the finder page
+### Email Content
 
-**Responsibilities:**
-- Logo with theme-aware switching
-- Sign in/Sign up buttons for unauthenticated users
+The re-verification email will include:
+- LOQATR branding header
+- Explanation that their account was migrated
+- "Set Up Your Account" button with the Supabase invite link
+- Note that they'll need to create a new password
+- Standard footer
 
-### 4. `src/components/finder/ItemDetailsCard.tsx`
-**Purpose:** Display item details in a card
+---
 
-**Responsibilities:**
-- Render item detail fields (excluding "Item owner name")
-- Show description if present
-- Show empty state message
+## Admin UI Design
 
-### 5. `src/components/finder/PrivateMessageForm.tsx`
-**Purpose:** Self-contained form for private tag messaging
+The Users page will display a table with:
 
-**Responsibilities:**
-- Form state management (name, email, phone, message)
-- Validation (name required, email or phone required)
-- Message submission via edge function
-- Success state display
+| Column | Description |
+|--------|-------------|
+| Email | User's email address |
+| Status | "Pending" (never verified) or "Needs Password" (verified but never signed in) |
+| Created | Account creation date |
+| Action | "Send Invite" button |
 
-**Props:**
-```typescript
-interface PrivateMessageFormProps {
-  item: ItemInfo;
-  qrCode: QRCodeData;
-  locationAddress: string | null;
-}
-```
+After clicking "Send Invite":
+1. Confirmation dialog appears
+2. On confirm, edge function is called
+3. Success toast: "Invitation sent to user@example.com"
+4. Button changes to "Sent" (disabled) temporarily
 
-## File Modifications
+---
 
-### `src/pages/FinderPage.tsx`
-**Changes:**
-- Import and use new hooks: `useLocationData`, `useFinderPageData`
-- Import new components: `FinderHeader`, `ItemDetailsCard`, `PrivateMessageForm`
-- Remove all extracted logic (~350 lines removed)
-- Keep orchestration: loading state, contact reveal state, mode switching
-- Final size: ~150 lines
+## Required Secret
 
-### `src/components/finder/index.ts`
-**Changes:**
-- Add exports for new components
+Before implementation, you'll need to add the `REVERIFY_ADMIN_SECRET` secret. This will be used to authenticate admin requests to the edge function.
 
-## Implementation Details
+---
 
-### Hook: useLocationData
-- Uses `navigator.geolocation.getCurrentPosition`
-- Calls Nominatim API for reverse geocoding
-- Returns `LocationData` type from `src/types`
-- Memoizes with `useCallback` to prevent re-renders
+## Post-Implementation
 
-### Hook: useFinderPageData
-- Takes `code`, `user`, `isScan`, and `location` as parameters
-- Uses `useEffect` with proper dependencies
-- Calls `notifyTagScanned` from `src/lib/notifications`
-- Uses `supabase.rpc("get_public_owner_name")` for public tags
-- Calculates display name from item details, owner name, or revealed contact
+Once deployed:
+1. Navigate to `/admin/users` as a super admin
+2. See the list of 60 migrated users
+3. Click "Send Invite" for any user
+4. User receives email and can set up their account
+5. After setup, user can log in normally
 
-### Component: PrivateMessageForm
-- Manages own form state with `useState`
-- Calls `supabase.functions.invoke("submit-finder-message")`
-- Shows toast notifications for success/error
-- Displays success UI with CheckCircle icon after send
-
-## Benefits
-
-| Aspect | Before | After |
-|--------|--------|-------|
-| Lines in FinderPage | ~503 | ~150 |
-| Testable units | 1 (hard) | 5+ (easy) |
-| Reusability | None | Hooks can be used elsewhere |
-| Separation of concerns | Mixed | Clear boundaries |
-| Code navigation | Difficult | Logical file structure |
-
-## Execution Order
-
-1. Create `useLocationData.ts` hook
-2. Create `useFinderPageData.ts` hook
-3. Create `FinderHeader.tsx` component
-4. Create `ItemDetailsCard.tsx` component
-5. Create `PrivateMessageForm.tsx` component
-6. Update `finder/index.ts` exports
-7. Refactor `FinderPage.tsx` to use new modules
-8. Test all functionality end-to-end
