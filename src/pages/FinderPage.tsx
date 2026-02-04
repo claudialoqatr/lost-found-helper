@@ -39,6 +39,7 @@ export default function FinderPage() {
   const [qrCode, setQRCode] = useState<QRCodeData | null>(null);
   const [item, setItem] = useState<ItemInfo | null>(null);
   const [itemDetails, setItemDetails] = useState<ItemDetailDisplay[]>([]);
+  const [ownerFirstName, setOwnerFirstName] = useState<string | null>(null);
   const [location, setLocation] = useState<LocationData>({ latitude: null, longitude: null, address: null });
   const [locationLoading, setLocationLoading] = useState(true);
   const [revealedContact, setRevealedContact] = useState<RevealedContact | null>(null);
@@ -137,8 +138,18 @@ export default function FinderPage() {
         }
       }
 
-      // For public tags, contact info will be revealed via captcha gate
-      // No need to fetch owner info here anymore
+      // For public tags, fetch owner's first name (not contact info)
+      if (qrData.is_public && qrData.assigned_to) {
+        const { data: ownerData } = await supabase
+          .from("users")
+          .select("name")
+          .eq("id", qrData.assigned_to)
+          .maybeSingle();
+        
+        if (ownerData?.name) {
+          setOwnerFirstName(ownerData.name.split(" ")[0]);
+        }
+      }
 
       // Fetch item info
       let fetchedItemName: string | null = null;
@@ -252,11 +263,14 @@ export default function FinderPage() {
     }
   };
 
-  // Get display name: prioritize "Item owner name" detail, fallback to "Owner"
+  // Get display name: prioritize "Item owner name" detail, then fetched owner name, fallback to "Owner"
   const getDisplayOwnerName = () => {
     const ownerNameDetail = itemDetails.find((d) => d.type === "Item owner name");
     if (ownerNameDetail?.value) {
       return ownerNameDetail.value.split(" ")[0]; // First name only
+    }
+    if (ownerFirstName) {
+      return ownerFirstName;
     }
     if (revealedContact?.owner_name) {
       return revealedContact.owner_name.split(" ")[0];
@@ -316,7 +330,7 @@ export default function FinderPage() {
             <h1 className="text-3xl font-bold mb-3">
               You have found{" "}
               <span className="gradient-loqatr-text">
-                {getDisplayOwnerName()}'s
+                {qrCode?.is_public ? `${getDisplayOwnerName()}'s` : "Someone's"}
               </span>{" "}
               {item?.name || "Item"}!
             </h1>
