@@ -34,7 +34,7 @@ export function QRCodeBuilder({ batch, loqatrIds, onDownloaded, onPrinted }: QRC
 
   const { toast } = useToast();
   const [gradient, setGradient] = useState(false);
-  const [showLogo, setShowLogo] = useState(true);
+  const [showLogo, setShowLogo] = useState(false);
   const [square, setSquare] = useState(false); // Default to circular/liquid for modern look
   const [errorLevel, setErrorLevel] = useState<ErrorCorrectionLevel>("M");
   const [progress, setProgress] = useState({ generate: 0, zip: 0 });
