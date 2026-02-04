@@ -1,33 +1,42 @@
 import { useState, useRef, useEffect } from "react";
 import QRCodeStyling from "qr-code-styling";
 import JSZip from "jszip";
-import { Download, Loader2 } from "lucide-react";
+import { Download, Loader2, Printer, Palette, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { qrCodeConfig, getBaseLoqatrIdURL } from "@/lib/qrCodeConfig";
+import { qrCodeConfig, getBaseLoqatrIdURL, ErrorCorrectionLevel } from "@/lib/qrCodeConfig";
 import { QRCodeBatch } from "@/types";
 
 interface QRCodeBuilderProps {
   batch: QRCodeBatch;
   loqatrIds: string[];
   onDownloaded: () => void;
+  onPrinted: () => void;
 }
 
 /**
- * QR code preview and batch download component
+ * QR code preview and batch download component with advanced styling controls
  */
-export function QRCodeBuilder({ batch, loqatrIds, onDownloaded }: QRCodeBuilderProps) {
+export function QRCodeBuilder({ batch, loqatrIds, onDownloaded, onPrinted }: QRCodeBuilderProps) {
   const previewRef = useRef<HTMLDivElement>(null);
   const qrCodePreview = useRef<QRCodeStyling | null>(null);
 
   const { toast } = useToast();
   const [gradient, setGradient] = useState(false);
-  const [showLogo, setShowLogo] = useState(false);
-  const [square, setSquare] = useState(true);
+  const [showLogo, setShowLogo] = useState(true);
+  const [square, setSquare] = useState(false); // Default to circular/liquid for modern look
+  const [errorLevel, setErrorLevel] = useState<ErrorCorrectionLevel>("M");
   const [progress, setProgress] = useState({ generate: 0, zip: 0 });
   const [isDownloading, setIsDownloading] = useState(false);
 
@@ -38,15 +47,19 @@ export function QRCodeBuilder({ batch, loqatrIds, onDownloaded }: QRCodeBuilderP
   // Initialize Preview
   useEffect(() => {
     if (!qrCodePreview.current && previewRef.current) {
-      qrCodePreview.current = new QRCodeStyling(qrCodeConfig(sampleUrl, gradient, showLogo, square));
+      qrCodePreview.current = new QRCodeStyling(
+        qrCodeConfig(sampleUrl, gradient, showLogo, square, errorLevel)
+      );
       qrCodePreview.current.append(previewRef.current);
     }
   }, [sampleUrl]);
 
   // Update Preview when toggles change
   useEffect(() => {
-    qrCodePreview.current?.update(qrCodeConfig(sampleUrl, gradient, showLogo, square));
-  }, [gradient, showLogo, square, sampleUrl]);
+    qrCodePreview.current?.update(
+      qrCodeConfig(sampleUrl, gradient, showLogo, square, errorLevel)
+    );
+  }, [gradient, showLogo, square, errorLevel, sampleUrl]);
 
   async function downloadBatch() {
     if (!loqatrIds?.length) {
@@ -54,18 +67,20 @@ export function QRCodeBuilder({ batch, loqatrIds, onDownloaded }: QRCodeBuilderP
     }
 
     setIsDownloading(true);
-    const files: { blob: Blob | Buffer; filename: string }[] = [];
-    const generator = new QRCodeStyling(qrCodeConfig("", gradient, showLogo, square));
+    const zip = new JSZip();
+    const generator = new QRCodeStyling(
+      qrCodeConfig("", gradient, showLogo, square, errorLevel)
+    );
 
     try {
-      // 1. Generation Phase
+      // Iterative generation - memory safe for large batches
       for (let i = 0; i < loqatrIds.length; i++) {
         const qrValue = `${getBaseLoqatrIdURL()}${loqatrIds[i]}?scan=true`;
-        generator.update(qrCodeConfig(qrValue, gradient, showLogo, square));
+        generator.update(qrCodeConfig(qrValue, gradient, showLogo, square, errorLevel));
 
         const svg = await generator.getRawData("svg");
         if (svg) {
-          files.push({ blob: svg, filename: `${loqatrIds[i]}.svg` });
+          zip.file(`${loqatrIds[i]}.svg`, svg);
         }
 
         setProgress((prev) => ({
@@ -74,15 +89,12 @@ export function QRCodeBuilder({ batch, loqatrIds, onDownloaded }: QRCodeBuilderP
         }));
       }
 
-      // 2. Zipping Phase
-      const zip = new JSZip();
-      files.forEach((f) => zip.file(f.filename, f.blob));
-
+      // Generate ZIP with progress tracking
       const content = await zip.generateAsync({ type: "blob" }, (metadata) => {
         setProgress((prev) => ({ ...prev, zip: Math.round(metadata.percent) }));
       });
 
-      // 3. Download
+      // Trigger download
       const url = URL.createObjectURL(content);
       const link = document.createElement("a");
       link.href = url;
@@ -90,7 +102,7 @@ export function QRCodeBuilder({ batch, loqatrIds, onDownloaded }: QRCodeBuilderP
       link.click();
       URL.revokeObjectURL(url);
 
-      // 4. Update Status
+      // Update database status
       onDownloaded();
 
       toast({
@@ -109,6 +121,10 @@ export function QRCodeBuilder({ batch, loqatrIds, onDownloaded }: QRCodeBuilderP
         setProgress({ generate: 0, zip: 0 });
       }, 2000);
     }
+  }
+
+  function handleMarkPrinted() {
+    onPrinted();
   }
 
   return (
@@ -132,49 +148,80 @@ export function QRCodeBuilder({ batch, loqatrIds, onDownloaded }: QRCodeBuilderP
           <CardTitle className="text-lg">Style Settings</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="gradient" className="flex flex-col gap-1">
-              <span>Gradient Colors</span>
-              <span className="font-normal text-xs text-muted-foreground">
-                Use purple to blue gradient
-              </span>
-            </Label>
-            <Switch
-              id="gradient"
-              checked={gradient}
-              onCheckedChange={setGradient}
-            />
+          {/* Design Section */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <Palette className="h-4 w-4" />
+              <span>DESIGN</span>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Label htmlFor="square" className="flex flex-col gap-1">
+                <span>Circular Shape</span>
+                <span className="font-normal text-xs text-muted-foreground">
+                  Organic rounded corners
+                </span>
+              </Label>
+              <Switch
+                id="square"
+                checked={!square}
+                onCheckedChange={(checked) => setSquare(!checked)}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Label htmlFor="gradient" className="flex flex-col gap-1">
+                <span>Brand Gradient</span>
+                <span className="font-normal text-xs text-muted-foreground">
+                  Purple to blue gradient
+                </span>
+              </Label>
+              <Switch
+                id="gradient"
+                checked={gradient}
+                onCheckedChange={setGradient}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Label htmlFor="logo" className="flex flex-col gap-1">
+                <span>Show Logo</span>
+                <span className="font-normal text-xs text-muted-foreground">
+                  Display logo in center
+                </span>
+              </Label>
+              <Switch
+                id="logo"
+                checked={showLogo}
+                onCheckedChange={setShowLogo}
+              />
+            </div>
           </div>
 
-          <div className="flex items-center justify-between">
-            <Label htmlFor="logo" className="flex flex-col gap-1">
-              <span>Show Logo</span>
-              <span className="font-normal text-xs text-muted-foreground">
-                Add logo in center
-              </span>
-            </Label>
-            <Switch
-              id="logo"
-              checked={showLogo}
-              onCheckedChange={setShowLogo}
-            />
+          {/* Technical Section */}
+          <div className="space-y-4 pt-4 border-t">
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <Settings2 className="h-4 w-4" />
+              <span>TECHNICAL</span>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="errorLevel">Error Correction</Label>
+              <Select value={errorLevel} onValueChange={(v) => setErrorLevel(v as ErrorCorrectionLevel)}>
+                <SelectTrigger id="errorLevel" className="w-full">
+                  <SelectValue placeholder="Select level" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="L">Low (7%)</SelectItem>
+                  <SelectItem value="M">Medium (15%)</SelectItem>
+                  <SelectItem value="Q">Quartile (25%)</SelectItem>
+                  <SelectItem value="H">High (30%)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          <div className="flex items-center justify-between">
-            <Label htmlFor="square" className="flex flex-col gap-1">
-              <span>Square Dots</span>
-              <span className="font-normal text-xs text-muted-foreground">
-                Use square instead of rounded
-              </span>
-            </Label>
-            <Switch
-              id="square"
-              checked={square}
-              onCheckedChange={setSquare}
-            />
-          </div>
-
-          {/* Progress */}
+          {/* Progress Bars */}
           {isDownloading && (
             <div className="space-y-3 pt-4 border-t">
               <div className="space-y-1">
@@ -196,25 +243,35 @@ export function QRCodeBuilder({ batch, loqatrIds, onDownloaded }: QRCodeBuilderP
             </div>
           )}
 
-          {/* Download Button */}
-          <Button
-            onClick={downloadBatch}
-            disabled={isDownloading || loqatrIds.length === 0}
-            className="w-full"
-            size="lg"
-          >
-            {isDownloading ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Generating...
-              </>
-            ) : (
-              <>
-                <Download className="h-4 w-4 mr-2" />
-                {batch.is_downloaded ? "Re-Download" : "Download"} Batch ({loqatrIds.length} codes)
-              </>
-            )}
-          </Button>
+          {/* Action Buttons */}
+          <div className="flex gap-2 pt-2">
+            <Button
+              onClick={downloadBatch}
+              disabled={isDownloading || loqatrIds.length === 0}
+              className="flex-1"
+              size="lg"
+            >
+              {isDownloading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4 mr-2" />
+                  {batch.is_downloaded ? "Re-Download" : "Download"} ({loqatrIds.length})
+                </>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={handleMarkPrinted}
+              disabled={batch.is_printed || isDownloading}
+            >
+              <Printer className="h-4 w-4" />
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
