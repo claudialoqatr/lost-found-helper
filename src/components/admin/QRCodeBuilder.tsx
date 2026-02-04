@@ -137,12 +137,7 @@ export function QRCodeBuilder({ batch, loqatrIds, onDownloaded, onPrinted }: QRC
         <CardContent className="flex justify-center">
           <div
             ref={previewRef}
-            className="border rounded-lg p-4"
-            style={{
-              background: square 
-                ? '#FFFFFF' 
-                : 'repeating-conic-gradient(#e5e7eb 0% 25%, #fff 0% 50%) 50% / 20px 20px'
-            }}
+            className="border rounded-lg p-4 bg-white"
           />
         </CardContent>
       </Card>
