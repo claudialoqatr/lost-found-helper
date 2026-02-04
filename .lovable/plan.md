@@ -1,167 +1,255 @@
 
-# Alternate Item Owner Feature
+
+# Super Admin QR Code Batch Generation System
 
 ## Overview
 
-This feature allows QR code owners to specify that the tagged item belongs to someone else (e.g., a parent tagging their child's backpack). When enabled, an "Item owner name" field becomes **required**, and the finder page will display this name instead of the QR owner's name.
+This plan implements a complete QR code batch generation system for Super Admins. The feature allows admins to create batches of unique QR codes in the format `LOQ-{batchID}-{qrID}`, store them in the database, preview/download them as SVG files, and manage all batches through a dedicated admin dashboard.
 
-## How It Will Work
+## Architecture
 
-### Claiming/Editing a Tag
-1. A new toggle appears in `ItemForm`: **"I own this item"** (ON by default)
-2. When toggled OFF:
-   - An "Item owner name" entry is **automatically added** to the Item Details section
-   - This entry is **required** - validation prevents saving without it
-   - The user fills in the owner's name using the existing `ItemDetailsEditor` UI
+```text
++-------------------+     +--------------------+     +------------------+
+|  Admin Dashboard  | --> | Generate Batch API | --> | qrcode_batches   |
+|  /admin/batches   |     | (Edge Function)    |     | qrcodes tables   |
++-------------------+     +--------------------+     +------------------+
+         |                                                    |
+         v                                                    v
++-------------------+     +--------------------+     +------------------+
+| Batch Details     | --> | QR Code Builder    | --> | Download as ZIP  |
+| /admin/batches/:id|     | (Client-side gen)  |     | (JSZip + SVG)    |
++-------------------+     +--------------------+     +------------------+
+```
 
-### Finder Experience
-When someone scans the QR code:
-- If "Item owner name" exists: **"You have found Max's Backpack!"**
-- If not: **"You have found John's Backpack!"** (QR owner's name, as before)
-- WhatsApp/Email messages use the same logic for personalization
+## Implementation Tasks
+
+### 1. Database Changes
+
+**New RLS Policies for Super Admin Access**
+
+Add policies to allow Super Admins to insert into `qrcode_batches` and `qrcodes` tables:
+
+- `qrcode_batches`: Super Admins can INSERT, UPDATE, and SELECT all batches
+- `qrcodes`: Super Admins can INSERT new QR codes
+
+**New Database Function**
+
+Create a secure function `generate_qr_batch(batch_size integer, notes text)` that:
+- Creates a new batch record in `qrcode_batches`
+- Generates unique 6-character alphanumeric IDs for each QR code
+- Inserts QR codes with format `LOQ-{batch_id}-{unique_id}`
+- Returns the batch ID and generated `loqatr_id` values
+
+### 2. New Dependencies
+
+Install the following npm packages:
+- `qr-code-styling`: For generating styled QR code SVGs with logo support
+- `jszip`: For bundling multiple QR codes into a downloadable ZIP file
+
+### 3. New Files to Create
+
+**Admin Pages**
+
+| File | Description |
+|------|-------------|
+| `src/pages/admin/BatchesPage.tsx` | Lists all QR code batches in a table with status, counts, and actions |
+| `src/pages/admin/BatchDetailPage.tsx` | Shows batch details and QR code builder with download functionality |
+
+**Admin Components**
+
+| File | Description |
+|------|-------------|
+| `src/components/admin/AdminLayout.tsx` | Layout wrapper with admin navigation (extends AppLayout) |
+| `src/components/admin/BatchesTable.tsx` | Table component for displaying batches |
+| `src/components/admin/QRCodeBuilder.tsx` | QR code preview and batch download component |
+| `src/components/admin/CreateBatchDialog.tsx` | Dialog for creating new batches with quantity input |
+
+**Hooks**
+
+| File | Description |
+|------|-------------|
+| `src/hooks/useBatches.ts` | Hook for fetching and managing batches |
+
+**Types**
+
+Add to `src/types/index.ts`:
+```typescript
+export interface QRCodeBatch {
+  id: number;
+  rand_value: number;
+  retailer_id: number | null;
+  staff_id: number | null;
+  notes: string | null;
+  status: string;
+  is_downloaded: boolean;
+  is_printed: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+}
+```
+
+**Edge Function**
+
+| File | Description |
+|------|-------------|
+| `supabase/functions/generate-batch/index.ts` | Secure endpoint for batch generation with admin validation |
+
+### 4. Routing Updates
+
+Update `src/App.tsx` to add admin routes:
+```typescript
+<Route path="/admin/batches" element={<BatchesPage />} />
+<Route path="/admin/batches/:batchId" element={<BatchDetailPage />} />
+```
+
+### 5. Navigation Updates
+
+Update `src/components/AppLayout.tsx` to conditionally show admin navigation items when `isSuperAdmin` is true.
 
 ---
 
-## Implementation Details
+## Technical Details
 
-### 1. Database: Add Field Type
+### QR Code ID Generation
+
+Each QR code will have a unique identifier following the format:
+- **Format**: `LOQ-{batchID}-{uniqueID}`
+- **Example**: `LOQ-76-kf2r4f`
+- **uniqueID**: 6 lowercase alphanumeric characters generated using `crypto.getRandomValues()`
+
+### Database Function: generate_qr_batch
 
 ```sql
-INSERT INTO item_detail_fields (type) VALUES ('Item owner name');
+CREATE OR REPLACE FUNCTION generate_qr_batch(
+  batch_size integer,
+  batch_notes text DEFAULT NULL,
+  p_retailer_id integer DEFAULT NULL
+)
+RETURNS TABLE(batch_id integer, loqatr_ids text[])
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  new_batch_id integer;
+  generated_ids text[] := '{}';
+  i integer;
+  unique_id text;
+  chars text := 'abcdefghijklmnopqrstuvwxyz0123456789';
+BEGIN
+  -- Verify caller is super admin
+  IF NOT is_super_admin() THEN
+    RAISE EXCEPTION 'Unauthorized: Super admin access required';
+  END IF;
+
+  -- Create batch record
+  INSERT INTO qrcode_batches (
+    rand_value, retailer_id, staff_id, notes, status
+  ) VALUES (
+    random(), p_retailer_id, get_user_id(), batch_notes, 'pending'
+  ) RETURNING id INTO new_batch_id;
+
+  -- Generate QR codes
+  FOR i IN 1..batch_size LOOP
+    -- Generate 6-char unique ID
+    unique_id := '';
+    FOR j IN 1..6 LOOP
+      unique_id := unique_id || substr(chars, floor(random() * 36 + 1)::int, 1);
+    END LOOP;
+    
+    -- Insert QR code
+    INSERT INTO qrcodes (loqatr_id, batch_id, status)
+    VALUES ('LOQ-' || new_batch_id || '-' || unique_id, new_batch_id, 'unassigned');
+    
+    generated_ids := array_append(generated_ids, 'LOQ-' || new_batch_id || '-' || unique_id);
+  END LOOP;
+
+  -- Update batch status
+  UPDATE qrcode_batches SET status = 'ready' WHERE id = new_batch_id;
+
+  RETURN QUERY SELECT new_batch_id, generated_ids;
+END;
+$$;
 ```
 
-This adds "Item owner name" as a field type option (ID will be 7).
+### QR Code Builder Component
 
-### 2. Update ItemDetailsEditor.tsx
+The QR Code Builder will:
+1. Display a live preview of a sample QR code
+2. Allow toggling styling options (gradient, logo, shape)
+3. Generate all QR codes as SVGs on download
+4. Bundle into a ZIP file named `batch-{id}.zip`
+5. Track download and print status in the database
 
-Add "Item owner name" to the available field types so it appears in the dropdown and can be managed like other details.
+### Batches Table Features
+
+The batches table will display:
+- Batch ID
+- QR Code count
+- Status (pending, ready, downloaded, printed)
+- Created date
+- Staff who created it
+- Notes
+- Action buttons (View, Download)
+
+### Security Considerations
+
+1. **Server-side validation**: The `generate_qr_batch` function checks `is_super_admin()` before proceeding
+2. **RLS policies**: Only Super Admins can insert/update batch and QR code records
+3. **Frontend protection**: Admin routes check `useSuperAdmin()` and redirect unauthorized users
+4. **Unique constraint**: Database ensures `loqatr_id` uniqueness to prevent duplicates
+
+### QR Code Styling Configuration
 
 ```typescript
-const FIELD_TYPES = [
-  "Item owner name",  // New - added first for visibility
-  "Emergency contact", 
-  "Return address", 
-  "Reward offer", 
-  "Medical info", 
-  "Pet info", 
-  "Other"
-];
-```
-
-### 3. Update ItemForm.tsx
-
-Add a new toggle with conditional logic:
-
-**New Props:**
-- `isItemOwner: boolean` - Whether the QR owner is also the item owner
-- `setIsItemOwner: (value: boolean) => void`
-- `onItemOwnerToggle: (isOwner: boolean) => void` - Callback when toggle changes (to add/remove the required detail)
-
-**New UI (after Item Name field):**
-```text
-I own this item:  [ON ●━━━] 
-
-(When OFF, displays helper text):
-"Please add the item owner's name in the details below"
-```
-
-### 4. Update ClaimTagPage.tsx
-
-**State Management:**
-- Add `isItemOwner` state (default: `true`)
-- Track whether "Item owner name" detail exists
-
-**Toggle Handler:**
-When toggle is switched OFF:
-- Automatically add an empty "Item owner name" entry to `itemDetails`
-
-When toggle is switched ON:
-- Remove any "Item owner name" entry from `itemDetails`
-
-**Validation on Submit:**
-- If `isItemOwner` is false, check that an "Item owner name" detail exists with a non-empty value
-- Show error toast if missing
-
-### 5. Update EditTagPage.tsx
-
-Same changes as ClaimTagPage, plus:
-- On data load, check if "Item owner name" detail exists → set `isItemOwner` to `false`
-- Preserve existing "Item owner name" value when editing
-
-### 6. Update FinderPage.tsx
-
-**New Helper Function:**
-```typescript
-const getDisplayOwnerName = () => {
-  // Check for "Item owner name" in item details
-  const ownerNameDetail = itemDetails.find(
-    d => d.type === "Item owner name"
-  );
-  
-  if (ownerNameDetail?.value) {
-    return ownerNameDetail.value.split(" ")[0]; // First name only
+export const qrCodeConfig = (
+  data: string,
+  gradient: boolean = false,
+  showLogo: boolean = true,
+  square: boolean = true
+) => ({
+  width: 300,
+  height: 300,
+  data,
+  margin: 10,
+  dotsOptions: {
+    color: gradient ? undefined : "#000000",
+    type: square ? "square" : "rounded",
+    gradient: gradient ? {
+      type: "radial",
+      colorStops: [
+        { offset: 0, color: "#8B5CF6" },
+        { offset: 1, color: "#0EA5E9" }
+      ]
+    } : undefined
+  },
+  backgroundOptions: {
+    color: "#FFFFFF"
+  },
+  imageOptions: {
+    hideBackgroundDots: true,
+    imageSize: 0.4,
+    margin: 5
+  },
+  image: showLogo ? "/logo-icon.png" : undefined,
+  cornersSquareOptions: {
+    type: square ? "square" : "extra-rounded"
+  },
+  cornersDotOptions: {
+    type: square ? "square" : "dot"
   }
-  
-  // Fall back to QR owner's name
-  return getOwnerFirstName();
-};
-```
-
-**Updates:**
-1. **Hero heading** (line 395-399): Use `getDisplayOwnerName()` instead of `getOwnerFirstName()`
-2. **getWhatsAppLink()**: Replace `getOwnerFirstName()` with `getDisplayOwnerName()`
-3. **getEmailLink()**: Replace `getOwnerFirstName()` with `getDisplayOwnerName()`
-4. **Contact section header** (line 450): Use `getDisplayOwnerName()`
-
-**Hide from Item Details Display:**
-Filter out "Item owner name" from the visible item details list since it's used for display purposes, not as an info field:
-
-```typescript
-{itemDetails
-  .filter(d => d.type !== "Item owner name")
-  .map((detail, index) => (
-    // ... existing render
-  ))}
+});
 ```
 
 ---
 
-## Files to Modify
+## User Flow
 
-| File | Changes |
-|------|---------|
-| `src/components/tag/ItemDetailsEditor.tsx` | Add "Item owner name" to FIELD_TYPES |
-| `src/components/tag/ItemForm.tsx` | Add "I own this item" toggle with callback |
-| `src/pages/ClaimTagPage.tsx` | Add state, toggle handler, validation |
-| `src/pages/EditTagPage.tsx` | Add state, toggle handler, load existing value |
-| `src/pages/FinderPage.tsx` | Add getDisplayOwnerName(), update display/messages |
+1. **Access Admin Dashboard**: Super Admin navigates to `/admin/batches`
+2. **Create New Batch**: Clicks "Create Batch" button, enters quantity and optional notes
+3. **Batch Generation**: System generates unique QR codes and stores them in database
+4. **View Batch**: Admin clicks on a batch to see all QR codes
+5. **Configure Style**: Admin can toggle gradient, logo, and shape options
+6. **Download**: Admin downloads all QR codes as a ZIP file of SVGs
+7. **Track Status**: System marks batch as downloaded; admin can mark as printed
 
----
-
-## User Flow Example
-
-### Scenario: Parent tagging child's backpack
-
-1. Parent scans unclaimed QR code
-2. Enters item name: "School Backpack"
-3. Toggles "I own this item" → OFF
-4. System auto-adds "Item owner name" row to Item Details
-5. Parent enters "Max" in the Item owner name field
-6. Saves the tag
-
-**Finder sees:** "You have found **Max's** School Backpack!"
-
-**WhatsApp message:** "Hi **Max**! I found your School Backpack tagged with Loqatr..."
-
----
-
-## Validation Rules
-
-1. If "I own this item" is OFF:
-   - "Item owner name" detail must exist
-   - Value cannot be empty
-   - Show toast: "Please enter the item owner's name"
-
-2. If "I own this item" is ON:
-   - Any existing "Item owner name" detail is removed on save
-   - Normal validation applies (item name required)
