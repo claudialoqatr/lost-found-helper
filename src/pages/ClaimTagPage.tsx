@@ -10,16 +10,13 @@ import {
   IconPicker,
   DescriptionField,
 } from "@/components/tag";
-import { useAuth } from "@/hooks/useAuth";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useClaimTagData } from "@/hooks/useClaimTagData";
 import { PageLoadingState, PageHeader, BackButton, GradientButton } from "@/components/shared";
 
 export default function ClaimTagPage() {
   const { code } = useParams<{ code: string }>();
-  const { user, loading: authLoading } = useAuth();
   const { userProfile } = useUserProfile();
-  const isAuthenticated = !!user;
 
   const {
     loading,
@@ -41,13 +38,9 @@ export default function ClaimTagPage() {
     itemOwnerName,
     handleSubmit,
     saving,
-  } = useClaimTagData({
-    code,
-    isAuthenticated,
-    authLoading,
-  });
+  } = useClaimTagData({ code });
 
-  if (authLoading || loading) {
+  if (loading) {
     return <PageLoadingState />;
   }
 
