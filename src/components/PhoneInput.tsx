@@ -41,6 +41,7 @@ interface PhoneInputProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  maxLength?: number;
 }
 
 const getDialCode = (countryCode: string) => {
@@ -78,7 +79,7 @@ const parseInitialValue = (value: string): { country: string; phone: string } =>
   return { country: detectCountryFromTimezone(), phone: "" };
 };
 
-export function PhoneInput({ value, onChange, placeholder = "Phone number" }: PhoneInputProps) {
+export function PhoneInput({ value, onChange, placeholder = "Phone number", maxLength }: PhoneInputProps) {
   const initialized = useRef(false);
   const [selectedCountry, setSelectedCountry] = useState(() => {
     const parsed = parseInitialValue(value);
@@ -137,6 +138,7 @@ export function PhoneInput({ value, onChange, placeholder = "Phone number" }: Ph
         value={phoneNumber}
         onChange={handlePhoneChange}
         className="flex-1"
+        maxLength={maxLength ? maxLength - 4 : undefined} // Account for dial code
       />
     </div>
   );

@@ -21,25 +21,32 @@ import logoLight from "@/assets/logo-light.svg";
 const TURNSTILE_SITE_KEY = "1x00000000000000000000AA";
 
 const loginSchema = z.object({
-  email: z.string().email("Please enter a valid email"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  email: z.string().max(254, "Email is too long").email("Please enter a valid email"),
+  password: z.string().min(6, "Password must be at least 6 characters").max(128, "Password is too long"),
 });
 
 const forgotPasswordSchema = z.object({
-  email: z.string().email("Please enter a valid email"),
+  email: z.string().max(254, "Email is too long").email("Please enter a valid email"),
 });
 
 const signupSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Please enter a valid email"),
-  phone: z.string().min(10, "Please enter a valid phone number"),
+  name: z.string()
+    .min(2, "Name must be at least 2 characters")
+    .max(100, "Name must be less than 100 characters")
+    .regex(/^[a-zA-Z\s'-]+$/, "Name can only contain letters, spaces, hyphens, and apostrophes"),
+  email: z.string().max(254, "Email is too long").email("Please enter a valid email"),
+  phone: z.string()
+    .min(10, "Please enter a valid phone number")
+    .max(20, "Phone number is too long")
+    .regex(/^\+?[\d\s-()]+$/, "Please enter a valid phone number"),
   password: z.string()
     .min(8, "Password must be at least 8 characters")
+    .max(128, "Password is too long")
     .regex(/[A-Z]/, "Password must contain an uppercase letter")
     .regex(/[a-z]/, "Password must contain a lowercase letter")
     .regex(/\d/, "Password must contain a number")
     .regex(/[!@#$%^&*(),.?":{}|<>]/, "Password must contain a special character"),
-  confirmPassword: z.string(),
+  confirmPassword: z.string().max(128, "Password is too long"),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
@@ -216,7 +223,8 @@ export default function AuthPage() {
                       <FormControl>
                         <Input 
                           type="email" 
-                          placeholder="you@example.com" 
+                          placeholder="you@example.com"
+                          maxLength={254}
                           {...field} 
                         />
                       </FormControl>
@@ -233,7 +241,8 @@ export default function AuthPage() {
                       <FormControl>
                         <Input 
                           type="password" 
-                          placeholder="••••••••" 
+                          placeholder="••••••••"
+                          maxLength={128}
                           {...field} 
                         />
                       </FormControl>
@@ -277,7 +286,8 @@ export default function AuthPage() {
                       <FormLabel>Name <span className="text-destructive">*</span></FormLabel>
                       <FormControl>
                         <Input 
-                          placeholder="Your name" 
+                          placeholder="Your name"
+                          maxLength={100}
                           {...field} 
                         />
                       </FormControl>
@@ -294,7 +304,8 @@ export default function AuthPage() {
                       <FormControl>
                         <Input 
                           type="email" 
-                          placeholder="you@example.com" 
+                          placeholder="you@example.com"
+                          maxLength={254}
                           {...field} 
                         />
                       </FormControl>
@@ -313,6 +324,7 @@ export default function AuthPage() {
                           value={field.value}
                           onChange={field.onChange}
                           placeholder="Phone number"
+                          maxLength={20}
                         />
                       </FormControl>
                       <FormMessage />
@@ -328,7 +340,8 @@ export default function AuthPage() {
                       <FormControl>
                         <Input 
                           type="password" 
-                          placeholder="••••••••" 
+                          placeholder="••••••••"
+                          maxLength={128}
                           {...field} 
                         />
                       </FormControl>
@@ -346,7 +359,8 @@ export default function AuthPage() {
                       <FormControl>
                         <Input 
                           type="password" 
-                          placeholder="••••••••" 
+                          placeholder="••••••••"
+                          maxLength={128}
                           {...field} 
                         />
                       </FormControl>
@@ -392,7 +406,8 @@ export default function AuthPage() {
                       <FormControl>
                         <Input 
                           type="email" 
-                          placeholder="you@example.com" 
+                          placeholder="you@example.com"
+                          maxLength={254}
                           {...field} 
                         />
                       </FormControl>
