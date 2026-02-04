@@ -64,7 +64,6 @@ export default function FinderPage() {
   const [itemDetails, setItemDetails] = useState<ItemDetail[]>([]);
   const [location, setLocation] = useState<LocationData>({ latitude: null, longitude: null, address: null });
   const [locationLoading, setLocationLoading] = useState(true);
-  const [scanId, setScanId] = useState<number | null>(null);
   const [revealedContact, setRevealedContact] = useState<RevealedContact | null>(null);
 
   // Message form state (for private mode)
@@ -202,8 +201,8 @@ export default function FinderPage() {
         }
       }
 
-      // Record the scan and notify owner
-      await recordScan(qrData.id, qrData.assigned_to, fetchedItemName);
+      // Notify owner that their tag was scanned (scan record created in edge function on reveal)
+      await notifyOwnerOfScan(qrData.id, qrData.assigned_to, fetchedItemName);
     } catch (error) {
       console.error("Error fetching data:", error);
       toast({
@@ -216,29 +215,8 @@ export default function FinderPage() {
     }
   };
 
-  const recordScan = async (qrCodeId: number, ownerId: number | null, itemName: string | null) => {
+  const notifyOwnerOfScan = async (qrCodeId: number, ownerId: number | null, itemName: string | null) => {
     try {
-      // Wait briefly for location if still loading
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      const { data: scanData, error } = await supabase.from("scans").insert({
-        qr_code_id: qrCodeId,
-        latitude: location.latitude,
-        longitude: location.longitude,
-        address: location.address,
-        is_owner: false,
-      }).select('id').single();
-
-      if (error) {
-        console.error("Failed to record scan:", error);
-        return;
-      }
-
-      // Store scan ID for later use in contact reveal
-      if (scanData) {
-        setScanId(scanData.id);
-      }
-
       // Notify owner that their tag was scanned
       if (ownerId && itemName) {
         await notifyTagScanned(
@@ -249,7 +227,7 @@ export default function FinderPage() {
         );
       }
     } catch (e) {
-      console.error("Scan recording error:", e);
+      console.error("Notification error:", e);
     }
   };
 
