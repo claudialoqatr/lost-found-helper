@@ -361,6 +361,11 @@ export default function EditTagPage() {
     }
   };
 
+  // Get the item owner name from details when "not my item" is toggled
+  const itemOwnerName = !isItemOwner 
+    ? itemDetails.find(d => d.fieldType === "Item owner name")?.value || undefined
+    : undefined;
+
   if (authLoading || profileLoading || loading) {
     return <PageLoadingState />;
   }
@@ -388,7 +393,7 @@ export default function EditTagPage() {
 
               {/* Compact contact details on mobile */}
               <div className="lg:hidden">
-                <ContactDetailsCard user={userProfile} compact />
+                <ContactDetailsCard user={userProfile} compact alternateOwnerName={itemOwnerName} />
               </div>
 
               {/* Not my item toggle */}
@@ -456,7 +461,7 @@ export default function EditTagPage() {
 
             {/* Right Column - Desktop only */}
             <div className="hidden lg:block space-y-6 mt-0">
-              <ContactDetailsCard user={userProfile} />
+              <ContactDetailsCard user={userProfile} alternateOwnerName={itemOwnerName} />
               {qrCode && <ScanHistory qrCodeId={qrCode.id} />}
 
               {/* Actions - desktop */}

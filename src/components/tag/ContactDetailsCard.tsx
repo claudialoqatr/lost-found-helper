@@ -1,5 +1,4 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
 
 interface ContactDetailsCardProps {
   user: {
@@ -9,15 +8,19 @@ interface ContactDetailsCardProps {
   } | null;
   /** Compact mode for mobile - shows inline */
   compact?: boolean;
+  /** Alternate owner name (when item belongs to someone else) */
+  alternateOwnerName?: string;
 }
 
-export function ContactDetailsCard({ user, compact = false }: ContactDetailsCardProps) {
+export function ContactDetailsCard({ user, compact = false, alternateOwnerName }: ContactDetailsCardProps) {
+  const displayName = alternateOwnerName || user?.name || "—";
+
   if (compact) {
     return (
       <div className="p-3 rounded-lg bg-muted/50 border">
         <p className="text-xs text-muted-foreground mb-1">Your contact details (shown when found)</p>
         <p className="text-sm font-medium">
-          {user?.name || "—"} • {user?.email || "—"}{user?.phone ? ` • ${user.phone}` : ""}
+          {displayName} • {user?.email || "—"}{user?.phone ? ` • ${user.phone}` : ""}
         </p>
       </div>
     );
@@ -32,7 +35,7 @@ export function ContactDetailsCard({ user, compact = false }: ContactDetailsCard
           <div>
             <p className="text-muted-foreground text-xs">Name</p>
             <p className="text-foreground font-medium">
-              {user?.name || "—"}
+              {displayName}
             </p>
           </div>
 
