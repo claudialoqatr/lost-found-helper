@@ -201,10 +201,10 @@ export function AppLayout({ children }: AppLayoutProps) {
               <span className="sr-only">Toggle theme</span>
             </Button>
 
-            {/* Notifications - mobile */}
+            {/* Notifications - all screens */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative md:hidden">
+                <Button variant="ghost" size="icon" className="relative">
                   <Bell className="h-5 w-5" />
                   {unreadCount > 0 && (
                     <span className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center">
