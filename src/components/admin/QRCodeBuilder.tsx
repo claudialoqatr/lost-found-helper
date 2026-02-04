@@ -137,7 +137,12 @@ export function QRCodeBuilder({ batch, loqatrIds, onDownloaded, onPrinted }: QRC
         <CardContent className="flex justify-center">
           <div
             ref={previewRef}
-            className="border rounded-lg p-4 bg-white"
+            className="border rounded-lg p-4"
+            style={{
+              background: square 
+                ? '#FFFFFF' 
+                : 'repeating-conic-gradient(#e5e7eb 0% 25%, #fff 0% 50%) 50% / 20px 20px'
+            }}
           />
         </CardContent>
       </Card>
@@ -159,7 +164,7 @@ export function QRCodeBuilder({ batch, loqatrIds, onDownloaded, onPrinted }: QRC
               <Label htmlFor="square" className="flex flex-col gap-1">
                 <span>Circular Shape</span>
                 <span className="font-normal text-xs text-muted-foreground">
-                  Organic rounded corners
+                  Round shape with transparent background
                 </span>
               </Label>
               <Switch

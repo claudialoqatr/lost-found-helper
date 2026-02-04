@@ -33,12 +33,13 @@ export const qrCodeConfig = (
   height: 600,
   data,
   margin: 10,
+  shape: square ? "square" : "circle",
   qrOptions: {
     errorCorrectionLevel,
   },
   dotsOptions: {
     color: gradient ? undefined : "#000000",
-    type: square ? "square" : "extra-rounded",
+    type: square ? "square" : "rounded",
     gradient: gradient
       ? {
           type: "radial",
@@ -50,7 +51,7 @@ export const qrCodeConfig = (
       : undefined,
   },
   backgroundOptions: {
-    color: "#FFFFFF",
+    color: square ? "#FFFFFF" : "transparent",
   },
   imageOptions: {
     hideBackgroundDots: true,
