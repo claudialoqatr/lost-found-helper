@@ -357,7 +357,9 @@ export type Database = {
       scans: {
         Row: {
           address: string | null
+          contact_revealed: boolean | null
           id: number
+          ip_address: unknown
           is_owner: boolean | null
           latitude: number | null
           longitude: number | null
@@ -367,7 +369,9 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          contact_revealed?: boolean | null
           id?: number
+          ip_address?: unknown
           is_owner?: boolean | null
           latitude?: number | null
           longitude?: number | null
@@ -377,7 +381,9 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          contact_revealed?: boolean | null
           id?: number
+          ip_address?: unknown
           is_owner?: boolean | null
           latitude?: number | null
           longitude?: number | null
@@ -464,6 +470,15 @@ export type Database = {
     }
     Functions: {
       get_user_id: { Args: never; Returns: number }
+      reveal_item_contact: {
+        Args: { current_scan_id: number; target_qr_id: string }
+        Returns: {
+          owner_email: string
+          owner_name: string
+          owner_phone: string
+          whatsapp_url: string
+        }[]
+      }
     }
     Enums: {
       qr_code_status: "assigned" | "unassigned" | "active" | "retired"
