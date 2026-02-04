@@ -79,8 +79,8 @@ export function useClaimTagData({
   useEffect(() => {
     if (qrError) {
       toast({
-        title: "QR Code not found",
-        description: "This QR code doesn't exist in our system.",
+        title: "Tag Not Recognized",
+        description: "We couldn't find this QR code. Please scan again or contact support if the problem persists.",
         variant: "destructive",
       });
       navigate("/");
@@ -174,8 +174,8 @@ export function useClaimTagData({
     } catch (error) {
       console.error("Error saving:", error);
       toast({
-        title: "Error",
-        description: "Failed to save. Please try again.",
+        title: "Couldn't Claim Tag",
+        description: "Something went wrong while saving your item. Please check your connection and try again.",
         variant: "destructive",
       });
     } finally {

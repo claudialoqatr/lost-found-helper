@@ -77,8 +77,8 @@ export function useFinderPageData({
 
       if (!qrData) {
         toast({
-          title: "QR Code not found",
-          description: "This QR code doesn't exist in our system.",
+          title: "Tag Not Recognized",
+          description: "We couldn't find this QR code. It may be invalid or not yet registered.",
           variant: "destructive",
         });
         navigate("/");
@@ -156,8 +156,8 @@ export function useFinderPageData({
     } catch (error) {
       console.error("Error fetching data:", error);
       toast({
-        title: "Error",
-        description: "Failed to load item details.",
+        title: "Couldn't Load Item",
+        description: "We had trouble loading the item details. Please refresh the page or try again later.",
         variant: "destructive",
       });
     } finally {
