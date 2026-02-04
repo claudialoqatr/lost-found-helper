@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Webhook } from "https://esm.sh/standardwebhooks@1.0.0";
 import { Resend } from "https://esm.sh/resend@4.0.0";
+import { createHmac, timingSafeEqual } from "node:crypto";
 
 import { welcomeEmail } from "./_templates/welcome.ts";
 import { otpEmail } from "./_templates/otp.ts";
@@ -34,6 +34,43 @@ interface AuthEmailPayload {
   };
 }
 
+// Verify Supabase Auth Hook signature
+function verifySupabaseSignature(payload: string, signature: string, secret: string): boolean {
+  try {
+    // Supabase signature format: v1,<base64signature>
+    const parts = signature.split(",");
+    if (parts.length < 2) {
+      console.error("Invalid signature format - missing parts");
+      return false;
+    }
+    
+    const receivedSig = parts[1];
+    
+    // Secret format: v1,whsec_<base64secret> - extract just the base64 part
+    const secretBase64 = secret.replace("v1,whsec_", "");
+    const secretBytes = Uint8Array.from(atob(secretBase64), c => c.charCodeAt(0));
+    
+    // Compute HMAC-SHA256
+    const hmac = createHmac("sha256", secretBytes);
+    hmac.update(payload);
+    const expectedSig = hmac.digest("base64");
+    
+    // Timing-safe comparison using Uint8Array
+    const receivedBytes = Uint8Array.from(atob(receivedSig), c => c.charCodeAt(0));
+    const expectedBytes = Uint8Array.from(atob(expectedSig), c => c.charCodeAt(0));
+    
+    if (receivedBytes.length !== expectedBytes.length) {
+      console.error("Signature length mismatch");
+      return false;
+    }
+    
+    return timingSafeEqual(receivedBytes, expectedBytes);
+  } catch (error) {
+    console.error("Signature verification error:", error);
+    return false;
+  }
+}
+
 const handler = async (req: Request): Promise<Response> => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -58,32 +95,36 @@ const handler = async (req: Request): Promise<Response> => {
     // Get the raw payload for signature verification
     const payload = await req.text();
     
-    // Normalize headers to lowercase for standardwebhooks compatibility
-    const rawHeaders = Object.fromEntries(req.headers);
-    const headers: Record<string, string> = {};
-    for (const [key, value] of Object.entries(rawHeaders)) {
-      headers[key.toLowerCase()] = value;
-    }
-
-    // Verify webhook signature
-    // Supabase webhook secrets are in format: v1,whsec_<base64secret>
-    // The standardwebhooks library expects just the raw base64 secret
-    const webhookSecret = SEND_EMAIL_HOOK_SECRET.replace("v1,whsec_", "");
-
-    console.log("Webhook headers received:", {
-      "webhook-id": headers["webhook-id"],
-      "webhook-timestamp": headers["webhook-timestamp"],
-      "webhook-signature": headers["webhook-signature"] ? "present" : "missing",
+    // Get the signature from Supabase Auth Hook header
+    const signature = req.headers.get("x-supabase-signature");
+    
+    console.log("Received headers:", {
+      "x-supabase-signature": signature ? "present" : "missing",
+      "content-type": req.headers.get("content-type"),
     });
     console.log("Secret format check - starts with v1,whsec_:", SEND_EMAIL_HOOK_SECRET.startsWith("v1,whsec_"));
 
-    const wh = new Webhook(webhookSecret);
-    let authPayload: AuthEmailPayload;
+    if (!signature) {
+      console.error("Missing x-supabase-signature header");
+      return new Response(
+        JSON.stringify({
+          error: {
+            http_code: 401,
+            message: "Missing signature header",
+          },
+        }),
+        {
+          status: 401,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        },
+      );
+    }
 
-    try {
-      authPayload = wh.verify(payload, headers) as AuthEmailPayload;
-    } catch (verifyError) {
-      console.error("Webhook signature verification failed:", verifyError);
+    // Verify the signature
+    const isValid = verifySupabaseSignature(payload, signature, SEND_EMAIL_HOOK_SECRET);
+    
+    if (!isValid) {
+      console.error("Webhook signature verification failed");
       return new Response(
         JSON.stringify({
           error: {
@@ -97,6 +138,9 @@ const handler = async (req: Request): Promise<Response> => {
         },
       );
     }
+
+    // Parse the verified payload
+    const authPayload: AuthEmailPayload = JSON.parse(payload);
 
     const { user, email_data } = authPayload;
     const { token, token_hash, redirect_to, email_action_type, site_url } = email_data;
