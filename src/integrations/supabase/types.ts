@@ -469,6 +469,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_qr_batch: {
+        Args: {
+          batch_notes?: string
+          batch_size: number
+          p_retailer_id?: number
+        }
+        Returns: {
+          batch_id: number
+          loqatr_ids: string[]
+        }[]
+      }
       get_user_id: { Args: never; Returns: number }
       is_super_admin:
         | { Args: never; Returns: boolean }

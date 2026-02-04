@@ -106,3 +106,19 @@ export const ITEM_DETAIL_FIELD_TYPES = [
 ] as const;
 
 export type ItemDetailFieldType = typeof ITEM_DETAIL_FIELD_TYPES[number];
+
+// ============ QR Code Batch Types ============
+
+export interface QRCodeBatch {
+  id: number;
+  rand_value: number;
+  retailer_id: number | null;
+  staff_id: number | null;
+  notes: string | null;
+  status: string;
+  is_downloaded: boolean;
+  is_printed: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+  qrcode_count?: number;
+}

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/hooks/useAuth";
+import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 import { useNotifications, Notification } from "@/hooks/useNotifications";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,7 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Menu, Tag, MessageSquare, Bell, LogOut, Sun, Moon, Package, Scan, CheckCheck } from "lucide-react";
+import { Menu, Tag, MessageSquare, Bell, LogOut, Sun, Moon, Package, Scan, CheckCheck, Shield } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import logoDark from "@/assets/logo-dark.svg";
 import logoLight from "@/assets/logo-light.svg";
@@ -31,6 +32,7 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   const { user, signOut } = useAuth();
+  const { isSuperAdmin } = useSuperAdmin();
   const location = useLocation();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
@@ -90,6 +92,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const navItems = [
     { title: "My Tags", path: "/my-tags", icon: Tag },
     { title: "Messages", path: "/messages", icon: MessageSquare },
+    ...(isSuperAdmin ? [{ title: "Admin", path: "/admin/batches", icon: Shield }] : []),
   ];
 
   const isActive = (path: string) => location.pathname === path;
