@@ -1,70 +1,62 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
-import { ItemForm, ItemDetailsEditor, ContactDetailsCard, LoqatrIdCard, type ItemDetail } from "@/components/tag";
-import { Button } from "@/components/ui/button";
+import { ItemForm, ItemDetailsEditor, ContactDetailsCard, LoqatrIdCard } from "@/components/tag";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserProfile } from "@/hooks/useUserProfile";
+import { useItemDetailsManager } from "@/hooks/useItemDetailsManager";
 import { supabase } from "@/integrations/supabase/client";
-
-interface UserProfile {
-  id: number;
-  name: string;
-  email: string;
-  phone: string | null;
-}
-
-interface QRCodeData {
-  id: number;
-  loqatr_id: string;
-  is_public: boolean;
-  item_id: number | null;
-  assigned_to: number | null;
-  status: string;
-}
+import { PageLoadingState, PageHeader, BackButton, GradientButton, PoweredByFooter } from "@/components/shared";
+import type { QRCodeData } from "@/types";
 
 export default function ClaimTagPage() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
+  const { userProfile, loading: profileLoading } = useUserProfile();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [qrCode, setQRCode] = useState<QRCodeData | null>(null);
 
   // Form state
   const [itemName, setItemName] = useState("");
   const [isPublic, setIsPublic] = useState(true);
   const [description, setDescription] = useState("");
-  const [isItemOwner, setIsItemOwner] = useState(true);
-  const [itemDetails, setItemDetails] = useState<ItemDetail[]>([]);
+
+  // Use the shared item details manager hook
+  const {
+    itemDetails,
+    isItemOwner,
+    addDetail,
+    removeDetail,
+    updateDetail,
+    handleItemOwnerChange,
+  } = useItemDetailsManager();
 
   const isAuthenticated = !!user;
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      // Store the intended destination and redirect to auth
       sessionStorage.setItem("redirect_after_auth", `/tag/${code}`);
       navigate("/auth");
       return;
     }
 
-    if (!authLoading) {
+    if (!authLoading && !profileLoading) {
       fetchData();
     }
-  }, [code, authLoading, isAuthenticated]);
+  }, [code, authLoading, isAuthenticated, profileLoading]);
 
   const fetchData = async () => {
     if (!code) return;
 
     setLoading(true);
     try {
-      // Fetch QR code by loqatr_id
       const { data: qrData, error: qrError } = await supabase
         .from("qrcodes")
         .select("*")
@@ -83,28 +75,13 @@ export default function ClaimTagPage() {
         return;
       }
 
-      // Fetch user profile
-      let currentUserProfile: UserProfile | null = null;
-      if (user) {
-        const { data: profileData, error: profileError } = await supabase
-          .from("users")
-          .select("*")
-          .eq("auth_id", user.id)
-          .maybeSingle();
-
-        if (profileError) throw profileError;
-        currentUserProfile = profileData;
-        setUserProfile(profileData);
-      }
-
       // If QR is claimed by current user, redirect to edit page
       if (qrData.assigned_to && qrData.status === "active") {
-        const isOwner = currentUserProfile?.id === qrData.assigned_to;
+        const isOwner = userProfile?.id === qrData.assigned_to;
         if (isOwner) {
           navigate(`/my-tags/${code}`, { replace: true });
           return;
         } else {
-          // Claimed by someone else, redirect to finder page
           navigate(`/found/${code}`, { replace: true });
           return;
         }
@@ -124,40 +101,6 @@ export default function ClaimTagPage() {
     }
   };
 
-  const addDetail = () => {
-    setItemDetails([...itemDetails, { id: crypto.randomUUID(), fieldType: "Emergency contact", value: "" }]);
-  };
-
-  const removeDetail = (id: string) => {
-    const detail = itemDetails.find((d) => d.id === id);
-    // Prevent removing "Item owner name" if isItemOwner is false
-    if (detail?.fieldType === "Item owner name" && !isItemOwner) {
-      return;
-    }
-    setItemDetails(itemDetails.filter((d) => d.id !== id));
-  };
-
-  const updateDetail = (id: string, field: "fieldType" | "value", value: string) => {
-    setItemDetails(itemDetails.map((d) => (d.id === id ? { ...d, [field]: value } : d)));
-  };
-
-  const handleItemOwnerChange = (isOwner: boolean) => {
-    setIsItemOwner(isOwner);
-    if (!isOwner) {
-      // Add "Item owner name" detail if not already present
-      const hasOwnerName = itemDetails.some((d) => d.fieldType === "Item owner name");
-      if (!hasOwnerName) {
-        setItemDetails([
-          { id: crypto.randomUUID(), fieldType: "Item owner name", value: "" },
-          ...itemDetails,
-        ]);
-      }
-    } else {
-      // Remove "Item owner name" detail when toggled back on
-      setItemDetails(itemDetails.filter((d) => d.fieldType !== "Item owner name"));
-    }
-  };
-
   const handleSubmit = async () => {
     if (!itemName.trim()) {
       toast({
@@ -168,7 +111,6 @@ export default function ClaimTagPage() {
       return;
     }
 
-    // Validate item owner name if not the owner
     if (!isItemOwner) {
       const ownerNameDetail = itemDetails.find((d) => d.fieldType === "Item owner name");
       if (!ownerNameDetail?.value.trim()) {
@@ -185,7 +127,6 @@ export default function ClaimTagPage() {
 
     setSaving(true);
     try {
-      // Create new item
       const { data: newItem, error: itemError } = await supabase
         .from("items")
         .insert({
@@ -197,8 +138,7 @@ export default function ClaimTagPage() {
 
       if (itemError) throw itemError;
 
-      // IMPORTANT: Update QR code FIRST to establish ownership
-      // This is required because item_details RLS checks qrcode ownership
+      // Update QR code FIRST to establish ownership (required for RLS)
       const { error: qrError } = await supabase
         .from("qrcodes")
         .update({
@@ -212,12 +152,11 @@ export default function ClaimTagPage() {
 
       if (qrError) throw qrError;
 
-      // Insert item details AFTER qrcode is linked (RLS requires ownership)
+      // Insert item details AFTER qrcode is linked
       if (itemDetails.length > 0 && newItem) {
         for (const detail of itemDetails) {
           if (!detail.value.trim()) continue;
 
-          // Get or create field type
           let { data: fieldData } = await supabase
             .from("item_detail_fields")
             .select("id")
@@ -248,7 +187,6 @@ export default function ClaimTagPage() {
         description: "This QR code is now linked to your account.",
       });
 
-      // Redirect to edit page after claiming
       navigate(`/my-tags/${code}`, { replace: true });
     } catch (error) {
       console.error("Error saving:", error);
@@ -262,40 +200,24 @@ export default function ClaimTagPage() {
     }
   };
 
-  if (authLoading || loading) {
-    return (
-      <AppLayout>
-        <div className="container mx-auto px-4 py-8 flex items-center justify-center min-h-[50vh]">
-          <div className="animate-pulse text-muted-foreground">Loading...</div>
-        </div>
-      </AppLayout>
-    );
+  if (authLoading || profileLoading || loading) {
+    return <PageLoadingState />;
   }
 
   return (
     <AppLayout>
       <div className="container mx-auto px-4 lg:px-8 py-6 lg:py-12 pb-24">
         <div className="max-w-2xl mx-auto lg:max-w-5xl">
-          {/* Go Back */}
-          <Button variant="outline" size="sm" className="mb-6" onClick={() => navigate(-1)}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Go Back
-          </Button>
+          <BackButton className="mb-6" />
 
-          {/* Two column layout on desktop */}
           <div className="lg:grid lg:grid-cols-2 lg:gap-12">
             {/* Left Column - Form */}
             <div className="space-y-6">
-              {/* Title */}
-              <div>
-                <h1 className="text-3xl lg:text-4xl font-bold mb-2">Claim This Tag</h1>
-                <p className="text-muted-foreground lg:text-lg">
-                  Enter any additional info. When your item is found, the finder will see this information along with
-                  your contact info.
-                </p>
-              </div>
+              <PageHeader
+                title="Claim This Tag"
+                description="Enter any additional info. When your item is found, the finder will see this information along with your contact info."
+              />
 
-              {/* Item Form */}
               <ItemForm
                 itemName={itemName}
                 setItemName={setItemName}
@@ -305,7 +227,6 @@ export default function ClaimTagPage() {
                 onItemOwnerChange={handleItemOwnerChange}
               />
 
-              {/* Item Details */}
               <ItemDetailsEditor
                 details={itemDetails}
                 onAdd={addDetail}
@@ -313,7 +234,6 @@ export default function ClaimTagPage() {
                 onUpdate={updateDetail}
               />
 
-              {/* Description */}
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
                 <Textarea
@@ -326,41 +246,37 @@ export default function ClaimTagPage() {
                 />
               </div>
 
-              {/* Submit Button - visible on mobile */}
+              {/* Submit Button - mobile */}
               <div className="lg:hidden">
-                <Button
-                  className="w-full gradient-loqatr text-white font-semibold h-12 text-base"
+                <GradientButton
+                  className="w-full"
                   onClick={handleSubmit}
-                  disabled={saving}
+                  loading={saving}
+                  loadingText="Saving..."
                 >
-                  {saving ? "Saving..." : "Claim This Tag"}
-                </Button>
+                  Claim This Tag
+                </GradientButton>
               </div>
             </div>
 
-            {/* Right Column - Contact Details & Actions (Desktop) */}
+            {/* Right Column */}
             <div className="space-y-6 mt-8 lg:mt-0">
-              {/* Contact Details Card */}
               <ContactDetailsCard user={userProfile} />
-
-              {/* Loqatr ID */}
               {qrCode && <LoqatrIdCard loqatrId={qrCode.loqatr_id} />}
 
-              {/* Submit Button - visible on desktop */}
+              {/* Submit Button - desktop */}
               <div className="hidden lg:block">
-                <Button
-                  className="w-full gradient-loqatr text-white font-semibold h-12 text-base"
+                <GradientButton
+                  className="w-full"
                   onClick={handleSubmit}
-                  disabled={saving}
+                  loading={saving}
+                  loadingText="Saving..."
                 >
-                  {saving ? "Saving..." : "Claim This Tag"}
-                </Button>
+                  Claim This Tag
+                </GradientButton>
               </div>
 
-              {/* Footer */}
-              <p className="text-center text-sm text-muted-foreground">
-                Powered by <span className="font-semibold">Waterfall Digital</span>
-              </p>
+              <PoweredByFooter />
             </div>
           </div>
         </div>

@@ -15,38 +15,11 @@ import { ContactRevealGate } from "@/components/finder/ContactRevealGate";
 import { PublicContactOptions } from "@/components/finder/PublicContactOptions";
 import logoDark from "@/assets/logo-dark.svg";
 import logoLight from "@/assets/logo-light.svg";
+import type { ItemInfo, QRCodeData, LocationData, RevealedContact } from "@/types";
 
-interface ItemInfo {
-  id: number;
-  name: string;
-  description: string | null;
-}
-
-interface ItemDetail {
+interface ItemDetailDisplay {
   type: string;
   value: string;
-}
-
-interface QRCodeInfo {
-  id: number;
-  loqatr_id: string;
-  is_public: boolean;
-  item_id: number | null;
-  assigned_to: number | null;
-  status: string;
-}
-
-interface LocationData {
-  latitude: number | null;
-  longitude: number | null;
-  address: string | null;
-}
-
-interface RevealedContact {
-  owner_name: string;
-  owner_email: string;
-  owner_phone: string | null;
-  whatsapp_url: string | null;
 }
 
 export default function FinderPage() {
@@ -59,9 +32,9 @@ export default function FinderPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [messageSent, setMessageSent] = useState(false);
-  const [qrCode, setQRCode] = useState<QRCodeInfo | null>(null);
+  const [qrCode, setQRCode] = useState<QRCodeData | null>(null);
   const [item, setItem] = useState<ItemInfo | null>(null);
-  const [itemDetails, setItemDetails] = useState<ItemDetail[]>([]);
+  const [itemDetails, setItemDetails] = useState<ItemDetailDisplay[]>([]);
   const [location, setLocation] = useState<LocationData>({ latitude: null, longitude: null, address: null });
   const [locationLoading, setLocationLoading] = useState(true);
   const [revealedContact, setRevealedContact] = useState<RevealedContact | null>(null);

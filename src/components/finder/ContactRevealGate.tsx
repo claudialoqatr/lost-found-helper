@@ -5,32 +5,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Turnstile } from "@/components/Turnstile";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import type { RevealedContact, LocationData } from "@/types";
 
 // Cloudflare Turnstile test keys for development
-// Replace with your production keys from https://dash.cloudflare.com/turnstile
-// Test site key that always passes: 1x00000000000000000000AA
-// Test site key that always fails: 2x00000000000000000000AB
 const TURNSTILE_SITE_KEY = "1x00000000000000000000AA";
-
-interface OwnerContact {
-  owner_name: string;
-  owner_email: string;
-  owner_phone: string | null;
-  whatsapp_url: string | null;
-}
-
-interface LocationData {
-  latitude: number | null;
-  longitude: number | null;
-  address: string | null;
-}
 
 interface ContactRevealGateProps {
   qrCodeId: number;
   qrIdentifier: string;
   displayOwnerName: string;
   location: LocationData;
-  onContactRevealed: (contact: OwnerContact) => void;
+  onContactRevealed: (contact: RevealedContact) => void;
 }
 
 export function ContactRevealGate({
