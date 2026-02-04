@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { QRCodeBatch } from "@/types";
 import { useToast } from "@/hooks/use-toast";
@@ -113,8 +114,8 @@ export function useBatches() {
     },
   });
 
-  // Fetch QR codes for a specific batch
-  const fetchBatchQRCodes = async (batchId: number) => {
+  // Fetch QR codes for a specific batch - wrapped in useCallback to prevent infinite re-renders
+  const fetchBatchQRCodes = useCallback(async (batchId: number) => {
     const { data, error } = await supabase
       .from("qrcodes")
       .select("loqatr_id")
@@ -123,7 +124,7 @@ export function useBatches() {
 
     if (error) throw error;
     return data?.map((qr) => qr.loqatr_id) || [];
-  };
+  }, []);
 
   return {
     batches,
