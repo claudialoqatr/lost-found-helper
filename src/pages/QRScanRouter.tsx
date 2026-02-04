@@ -75,7 +75,8 @@ export default function QRScanRouter() {
           navigate(`/my-tags/${code}`, { replace: true });
         } else {
           // Someone else scans → finder page
-          navigate(`/found/${code}`, { replace: true });
+          // Pass scan=true only if this is an actual physical scan
+          navigate(`/found/${code}${isScan ? "?scan=true" : ""}`, { replace: true });
         }
       } catch (err) {
         console.error("Error routing QR scan:", err);
