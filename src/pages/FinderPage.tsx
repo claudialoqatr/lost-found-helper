@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { Phone, Mail, MessageCircle, MapPin, Send, CheckCircle, Shield } from "lucide-react";
+import { MapPin, Send, CheckCircle, Shield } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,15 +11,10 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { notifyTagScanned, notifyMessageReceived } from "@/lib/notifications";
+import { ContactRevealGate } from "@/components/finder/ContactRevealGate";
+import { PublicContactOptions } from "@/components/finder/PublicContactOptions";
 import logoDark from "@/assets/logo-dark.svg";
 import logoLight from "@/assets/logo-light.svg";
-
-interface OwnerInfo {
-  id: number;
-  name: string;
-  email: string;
-  phone: string | null;
-}
 
 interface ItemInfo {
   id: number;
@@ -47,6 +42,13 @@ interface LocationData {
   address: string | null;
 }
 
+interface RevealedContact {
+  owner_name: string;
+  owner_email: string;
+  owner_phone: string | null;
+  whatsapp_url: string | null;
+}
+
 export default function FinderPage() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
@@ -58,11 +60,12 @@ export default function FinderPage() {
   const [sending, setSending] = useState(false);
   const [messageSent, setMessageSent] = useState(false);
   const [qrCode, setQRCode] = useState<QRCodeInfo | null>(null);
-  const [owner, setOwner] = useState<OwnerInfo | null>(null);
   const [item, setItem] = useState<ItemInfo | null>(null);
   const [itemDetails, setItemDetails] = useState<ItemDetail[]>([]);
   const [location, setLocation] = useState<LocationData>({ latitude: null, longitude: null, address: null });
   const [locationLoading, setLocationLoading] = useState(true);
+  const [scanId, setScanId] = useState<number | null>(null);
+  const [revealedContact, setRevealedContact] = useState<RevealedContact | null>(null);
 
   // Message form state (for private mode)
   const [finderName, setFinderName] = useState("");
@@ -167,18 +170,8 @@ export default function FinderPage() {
         }
       }
 
-      // Fetch owner info ONLY for public tags (RLS blocks this for private tags for non-owners)
-      if (qrData.is_public) {
-        const { data: ownerData, error: ownerError } = await supabase
-          .from("users")
-          .select("id, name, email, phone")
-          .eq("id", qrData.assigned_to)
-          .maybeSingle();
-
-        if (!ownerError && ownerData) {
-          setOwner(ownerData);
-        }
-      }
+      // For public tags, contact info will be revealed via captcha gate
+      // No need to fetch owner info here anymore
 
       // Fetch item info
       let fetchedItemName: string | null = null;
@@ -228,17 +221,22 @@ export default function FinderPage() {
       // Wait briefly for location if still loading
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      const { error } = await supabase.from("scans").insert({
+      const { data: scanData, error } = await supabase.from("scans").insert({
         qr_code_id: qrCodeId,
         latitude: location.latitude,
         longitude: location.longitude,
         address: location.address,
         is_owner: false,
-      });
+      }).select('id').single();
 
       if (error) {
         console.error("Failed to record scan:", error);
         return;
+      }
+
+      // Store scan ID for later use in contact reveal
+      if (scanData) {
+        setScanId(scanData.id);
       }
 
       // Notify owner that their tag was scanned
@@ -312,45 +310,16 @@ export default function FinderPage() {
     }
   };
 
-  const getOwnerFirstName = () => {
-    if (!owner) return "Owner";
-    return owner.name.split(" ")[0];
-  };
-
-  // Get display name: prioritize "Item owner name" detail, fallback to QR owner
+  // Get display name: prioritize "Item owner name" detail, fallback to "Owner"
   const getDisplayOwnerName = () => {
     const ownerNameDetail = itemDetails.find((d) => d.type === "Item owner name");
     if (ownerNameDetail?.value) {
       return ownerNameDetail.value.split(" ")[0]; // First name only
     }
-    return getOwnerFirstName();
-  };
-
-  const getWhatsAppLink = () => {
-    if (!owner?.phone) return null;
-    const cleanPhone = owner.phone.replace(/\D/g, "");
-    const displayName = getDisplayOwnerName();
-    const locationText = location.address ? `\n\n Found at: ${location.address}` : "";
-    const itemMessage = encodeURIComponent(
-      `Hi ${displayName}! I found your ${item?.name || "item"} tagged with Loqatr.${locationText}`,
-    );
-    return `https://wa.me/${cleanPhone}?text=${itemMessage}`;
-  };
-
-  const getEmailLink = () => {
-    if (!owner?.email) return null;
-    const displayName = getDisplayOwnerName();
-    const locationText = location.address ? `\n\nFound at: ${location.address}` : "";
-    const subject = encodeURIComponent(`Found: ${item?.name || "Your Item"}`);
-    const body = encodeURIComponent(
-      `Hi ${displayName},\n\nI found your ${item?.name || "item"} tagged with Loqatr.${locationText}\n\nPlease let me know how I can return it to you.`,
-    );
-    return `mailto:${owner.email}?subject=${subject}&body=${body}`;
-  };
-
-  const getPhoneLink = () => {
-    if (!owner?.phone) return null;
-    return `tel:${owner.phone}`;
+    if (revealedContact?.owner_name) {
+      return revealedContact.owner_name.split(" ")[0];
+    }
+    return "Owner";
   };
 
   if (loading) {
@@ -458,60 +427,21 @@ export default function FinderPage() {
 
           {/* Contact Section */}
           {qrCode?.is_public ? (
-            /* PUBLIC MODE - Direct contact options */
-            <div className="space-y-4">
-              <h2 className="font-bold text-xl text-center">Contact {getDisplayOwnerName()}</h2>
-              <p className="text-center text-muted-foreground text-sm mb-6">
-                Choose how you'd like to reach out to the owner
-              </p>
-
-              <div className="grid grid-cols-3 gap-2 md:gap-4">
-                {owner?.phone && (
-                  <Card
-                    className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02] border-2 hover:border-primary"
-                    onClick={() => window.open(getPhoneLink()!, "_blank")}
-                  >
-                    <CardContent className="p-3 md:pt-6 md:pb-6 flex flex-col items-center text-center">
-                      <div className="w-10 h-10 md:w-16 md:h-16 rounded-full bg-green-500/10 flex items-center justify-center mb-2 md:mb-4">
-                        <Phone className="h-5 w-5 md:h-8 md:w-8 text-green-600" />
-                      </div>
-                      <h3 className="font-semibold text-sm md:text-lg mb-0.5 md:mb-1">Call</h3>
-                      <p className="text-xs md:text-sm text-muted-foreground hidden md:block">Speak directly with {getDisplayOwnerName()}</p>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {owner?.phone && (
-                  <Card
-                    className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02] border-2 hover:border-primary"
-                    onClick={() => window.open(getWhatsAppLink()!, "_blank")}
-                  >
-                    <CardContent className="p-3 md:pt-6 md:pb-6 flex flex-col items-center text-center">
-                      <div className="w-10 h-10 md:w-16 md:h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mb-2 md:mb-4">
-                        <MessageCircle className="h-5 w-5 md:h-8 md:w-8 text-emerald-600" />
-                      </div>
-                      <h3 className="font-semibold text-sm md:text-lg mb-0.5 md:mb-1">WhatsApp</h3>
-                      <p className="text-xs md:text-sm text-muted-foreground hidden md:block">Send a quick message</p>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {owner?.email && (
-                  <Card
-                    className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02] border-2 hover:border-primary"
-                    onClick={() => window.open(getEmailLink()!, "_blank")}
-                  >
-                    <CardContent className="p-3 md:pt-6 md:pb-6 flex flex-col items-center text-center">
-                      <div className="w-10 h-10 md:w-16 md:h-16 rounded-full bg-blue-500/10 flex items-center justify-center mb-2 md:mb-4">
-                        <Mail className="h-5 w-5 md:h-8 md:w-8 text-blue-600" />
-                      </div>
-                      <h3 className="font-semibold text-sm md:text-lg mb-0.5 md:mb-1">Email</h3>
-                      <p className="text-xs md:text-sm text-muted-foreground hidden md:block">Send a detailed message</p>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-            </div>
+            /* PUBLIC MODE - Gated contact reveal */
+            revealedContact ? (
+              <PublicContactOptions
+                contact={revealedContact}
+                itemName={item?.name || "Item"}
+                locationAddress={location.address}
+              />
+            ) : (
+              <ContactRevealGate
+                scanId={scanId}
+                qrIdentifier={code || ""}
+                displayOwnerName={getDisplayOwnerName()}
+                onContactRevealed={setRevealedContact}
+              />
+            )
           ) : (
             /* PRIVATE MODE - Anonymous messaging */
             <Card>
