@@ -483,6 +483,7 @@ export type Database = {
           loqatr_ids: string[]
         }[]
       }
+      get_public_owner_name: { Args: { target_qr_id: string }; Returns: string }
       get_user_id: { Args: never; Returns: number }
       is_super_admin:
         | { Args: never; Returns: boolean }
