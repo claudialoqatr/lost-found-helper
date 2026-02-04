@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, Link, useSearchParams } from "react-router-dom";
 import { MapPin, Send, CheckCircle, Shield } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -24,10 +24,14 @@ interface ItemDetailDisplay {
 
 export default function FinderPage() {
   const { code } = useParams<{ code: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
   const { resolvedTheme } = useTheme();
+
+  // Only log scans when ?scan=true is present (physical QR scan)
+  const isScan = searchParams.get("scan") === "true";
 
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -165,8 +169,10 @@ export default function FinderPage() {
         }
       }
 
-      // Notify owner that their tag was scanned (scan record created in edge function on reveal)
-      await notifyOwnerOfScan(qrData.id, qrData.assigned_to, fetchedItemName);
+      // Only notify owner and log scan when ?scan=true (physical QR scan)
+      if (isScan) {
+        await notifyOwnerOfScan(qrData.id, qrData.assigned_to, fetchedItemName);
+      }
     } catch (error) {
       console.error("Error fetching data:", error);
       toast({
