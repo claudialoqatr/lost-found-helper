@@ -77,11 +77,11 @@ export function AppLayout({ children }: AppLayoutProps) {
   const getNotificationIcon = (type: Notification["type"]) => {
     switch (type) {
       case "tag_assigned":
-        return <Tag className="h-4 w-4 text-green-500" />;
+        return <Tag className="h-4 w-4 text-success" />;
       case "tag_unassigned":
         return <Tag className="h-4 w-4 text-muted-foreground" />;
       case "tag_scanned":
-        return <Scan className="h-4 w-4 text-blue-500" />;
+        return <Scan className="h-4 w-4 text-info" />;
       case "message_received":
         return <MessageSquare className="h-4 w-4 text-accent" />;
       default:

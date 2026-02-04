@@ -11,17 +11,17 @@ import {
   ItemDetailsEditor, 
   ContactDetailsCard, 
   LoqatrIdCard, 
-  IconPicker 
+  IconPicker,
+  DescriptionField,
 } from "@/components/tag";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useItemDetailsManager } from "@/hooks/useItemDetailsManager";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { supabase } from "@/integrations/supabase/client";
+import { updateItemDetails } from "@/lib/itemDetailsService";
 import { notifyTagUnassigned } from "@/lib/notifications";
 import { PageLoadingState, PageHeader, BackButton, GradientButton, UnsavedChangesDialog } from "@/components/shared";
 import type { QRCodeData, ItemInfo } from "@/types";
@@ -246,37 +246,8 @@ export default function EditTagPage() {
 
       if (updateError) throw updateError;
 
-      // Delete old details and insert new ones
-      await supabase.from("item_details").delete().eq("item_id", item.id);
-
-      if (itemDetails.length > 0) {
-        for (const detail of itemDetails) {
-          if (!detail.value.trim()) continue;
-
-          let { data: fieldData } = await supabase
-            .from("item_detail_fields")
-            .select("id")
-            .eq("type", detail.fieldType)
-            .maybeSingle();
-
-          if (!fieldData) {
-            const { data: newField } = await supabase
-              .from("item_detail_fields")
-              .insert({ type: detail.fieldType })
-              .select()
-              .single();
-            fieldData = newField;
-          }
-
-          if (fieldData) {
-            await supabase.from("item_details").insert({
-              item_id: item.id,
-              field_id: fieldData.id,
-              value: detail.value.trim(),
-            });
-          }
-        }
-      }
+      // Update item details using shared utility
+      await updateItemDetails(item.id, itemDetails);
 
       // Update QR code public setting
       const { error: qrError } = await supabase
@@ -411,17 +382,7 @@ export default function EditTagPage() {
               />
 
               {/* Description */}
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  placeholder="Any additional information for the finder..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={4}
-                  className="resize-none"
-                />
-              </div>
+              <DescriptionField value={description} onChange={setDescription} />
 
               {/* Privacy Toggle */}
               <PrivacyToggle isPublic={isPublic} setIsPublic={setIsPublic} />

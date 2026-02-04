@@ -1,14 +1,22 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
-import { ItemForm, ItemDetailsEditor, ContactDetailsCard, LoqatrIdCard, IconPicker } from "@/components/tag";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
+import { 
+  ItemNameField, 
+  NotMyItemToggle, 
+  PrivacyToggle, 
+  ItemDetailsEditor, 
+  ContactDetailsCard, 
+  LoqatrIdCard, 
+  IconPicker,
+  DescriptionField,
+} from "@/components/tag";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useItemDetailsManager } from "@/hooks/useItemDetailsManager";
 import { supabase } from "@/integrations/supabase/client";
+import { saveItemDetails } from "@/lib/itemDetailsService";
 import { PageLoadingState, PageHeader, BackButton, GradientButton } from "@/components/shared";
 import type { QRCodeData } from "@/types";
 
@@ -40,6 +48,11 @@ export default function ClaimTagPage() {
   } = useItemDetailsManager();
 
   const isAuthenticated = !!user;
+
+  // Get the item owner name from details when "not my item" is toggled
+  const itemOwnerName = !isItemOwner 
+    ? itemDetails.find(d => d.fieldType === "Item owner name")?.value || undefined
+    : undefined;
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -154,34 +167,9 @@ export default function ClaimTagPage() {
 
       if (qrError) throw qrError;
 
-      // Insert item details AFTER qrcode is linked
+      // Insert item details AFTER qrcode is linked (using shared utility)
       if (itemDetails.length > 0 && newItem) {
-        for (const detail of itemDetails) {
-          if (!detail.value.trim()) continue;
-
-          let { data: fieldData } = await supabase
-            .from("item_detail_fields")
-            .select("id")
-            .eq("type", detail.fieldType)
-            .maybeSingle();
-
-          if (!fieldData) {
-            const { data: newField } = await supabase
-              .from("item_detail_fields")
-              .insert({ type: detail.fieldType })
-              .select()
-              .single();
-            fieldData = newField;
-          }
-
-          if (fieldData) {
-            await supabase.from("item_details").insert({
-              item_id: newItem.id,
-              field_id: fieldData.id,
-              value: detail.value.trim(),
-            });
-          }
-        }
+        await saveItemDetails(newItem.id, itemDetails);
       }
 
       toast({
@@ -220,17 +208,25 @@ export default function ClaimTagPage() {
                 description="Enter any additional info. When your item is found, the finder will see this information along with your contact info."
               />
 
-              <ItemForm
+              {/* Item Name with inline icon picker */}
+              <ItemNameField
                 itemName={itemName}
                 setItemName={setItemName}
-                isPublic={isPublic}
-                setIsPublic={setIsPublic}
-                isItemOwner={isItemOwner}
-                onItemOwnerChange={handleItemOwnerChange}
+                iconPicker={<IconPicker value={iconName} onChange={setIconName} inline />}
               />
 
-              <IconPicker value={iconName} onChange={setIconName} />
+              {/* Compact contact details on mobile */}
+              <div className="lg:hidden">
+                <ContactDetailsCard user={userProfile} compact alternateOwnerName={itemOwnerName} />
+              </div>
 
+              {/* Not my item toggle */}
+              <NotMyItemToggle
+                isNotMyItem={!isItemOwner}
+                onNotMyItemChange={(notMyItem) => handleItemOwnerChange(!notMyItem)}
+              />
+
+              {/* Item Details */}
               <ItemDetailsEditor
                 details={itemDetails}
                 onAdd={addDetail}
@@ -238,17 +234,18 @@ export default function ClaimTagPage() {
                 onUpdate={updateDetail}
               />
 
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  placeholder="Any additional information for the finder..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={4}
-                  className="resize-none"
-                />
-              </div>
+              {/* Description */}
+              <DescriptionField value={description} onChange={setDescription} />
+
+              {/* Privacy Toggle */}
+              <PrivacyToggle isPublic={isPublic} setIsPublic={setIsPublic} />
+
+              {/* Loqatr ID - subtle inline display */}
+              {qrCode && (
+                <div className="pt-4 border-t">
+                  <LoqatrIdCard loqatrId={qrCode.loqatr_id} />
+                </div>
+              )}
 
               {/* Submit Button - mobile */}
               <div className="lg:hidden">
@@ -263,22 +260,19 @@ export default function ClaimTagPage() {
               </div>
             </div>
 
-            {/* Right Column */}
-            <div className="space-y-6 mt-8 lg:mt-0">
-              <ContactDetailsCard user={userProfile} />
-              {qrCode && <LoqatrIdCard loqatrId={qrCode.loqatr_id} />}
+            {/* Right Column - Desktop only */}
+            <div className="hidden lg:block space-y-6 mt-0">
+              <ContactDetailsCard user={userProfile} alternateOwnerName={itemOwnerName} />
 
               {/* Submit Button - desktop */}
-              <div className="hidden lg:block">
-                <GradientButton
-                  className="w-full"
-                  onClick={handleSubmit}
-                  loading={saving}
-                  loadingText="Saving..."
-                >
-                  Claim This Tag
-                </GradientButton>
-              </div>
+              <GradientButton
+                className="w-full"
+                onClick={handleSubmit}
+                loading={saving}
+                loadingText="Saving..."
+              >
+                Claim This Tag
+              </GradientButton>
             </div>
           </div>
         </div>
