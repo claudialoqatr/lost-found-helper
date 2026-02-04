@@ -41,10 +41,13 @@ export default function BatchDetailPage() {
     if (batch.is_downloaded) {
       return <Badge variant="secondary">Downloaded</Badge>;
     }
-    if (batch.status === "ready") {
-      return <Badge variant="outline">Ready</Badge>;
+    if (batch.status === "active") {
+      return <Badge variant="outline">Active</Badge>;
     }
-    return <Badge variant="destructive">Pending</Badge>;
+    if (batch.status === "retired") {
+      return <Badge variant="destructive">Retired</Badge>;
+    }
+    return <Badge variant="secondary">Pending</Badge>;
   };
 
   if (isLoading) {

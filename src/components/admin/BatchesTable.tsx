@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Eye, Download, Printer, Check } from "lucide-react";
+import { Eye, Printer, Check } from "lucide-react";
 import { QRCodeBatch } from "@/types";
 
 interface BatchesTableProps {
@@ -29,10 +29,13 @@ export function BatchesTable({ batches, onMarkPrinted }: BatchesTableProps) {
     if (batch.is_downloaded) {
       return <Badge variant="secondary">Downloaded</Badge>;
     }
-    if (batch.status === "ready") {
-      return <Badge variant="outline">Ready</Badge>;
+    if (batch.status === "active") {
+      return <Badge variant="outline">Active</Badge>;
     }
-    return <Badge variant="destructive">Pending</Badge>;
+    if (batch.status === "retired") {
+      return <Badge variant="destructive">Retired</Badge>;
+    }
+    return <Badge variant="secondary">Pending</Badge>;
   };
 
   return (
