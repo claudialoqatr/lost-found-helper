@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import { useQRCode } from "@/hooks/useQRCode";
 import { useItemDetailsManager } from "@/hooks/useItemDetailsManager";
 import { supabase } from "@/integrations/supabase/client";
 import { updateItemDetails } from "@/lib/itemDetailsService";
@@ -24,12 +25,9 @@ interface UseEditTagDataParams {
 }
 
 interface UseEditTagDataReturn {
-  // Data state
   loading: boolean;
   qrCode: QRCodeData | null;
   item: ItemInfo | null;
-
-  // Form state
   itemName: string;
   setItemName: (name: string) => void;
   isPublic: boolean;
@@ -38,36 +36,26 @@ interface UseEditTagDataReturn {
   setDescription: (description: string) => void;
   iconName: string;
   setIconName: (iconName: string) => void;
-
-  // Item details from shared hook
   itemDetails: ItemDetail[];
   isItemOwner: boolean;
   addDetail: () => void;
   removeDetail: (id: string) => void;
   updateDetail: (id: string, field: "fieldType" | "value", value: string) => void;
   handleItemOwnerChange: (isOwner: boolean) => void;
-
-  // Computed values
   itemOwnerName: string | undefined;
-
-  // Change detection
   hasChanges: () => boolean;
   resetInitialValues: () => void;
-
-  // Actions
   handleSubmit: () => Promise<void>;
   handleUnassign: () => Promise<void>;
   saving: boolean;
   unassigning: boolean;
-
-  // Dialog state
   showUnassignDialog: boolean;
   setShowUnassignDialog: (show: boolean) => void;
 }
 
 /**
  * Hook to manage all data and actions for the Edit Tag page.
- * Handles fetching, form state, submit, and unassign operations.
+ * Uses shared useQRCode hook for data fetching.
  */
 export function useEditTagData({
   code,
@@ -78,16 +66,21 @@ export function useEditTagData({
   const { toast } = useToast();
   const { userProfile, loading: profileLoading } = useUserProfile();
 
-  // Data state
-  const [loading, setLoading] = useState(true);
-  const [qrCode, setQRCode] = useState<QRCodeData | null>(null);
-  const [item, setItem] = useState<ItemInfo | null>(null);
+  // Use shared QR code fetching hook
+  const {
+    qrCode,
+    item,
+    itemDetails: fetchedDetails,
+    loading: qrLoading,
+    error: qrError,
+  } = useQRCode(code, { fetchDetails: true });
 
   // Form state
   const [itemName, setItemName] = useState("");
   const [isPublic, setIsPublic] = useState(true);
   const [description, setDescription] = useState("");
   const [iconName, setIconName] = useState("Package");
+  const [formInitialized, setFormInitialized] = useState(false);
 
   // Action state
   const [saving, setSaving] = useState(false);
@@ -117,118 +110,79 @@ export function useEditTagData({
     }
   }, [authLoading, isAuthenticated, code, navigate]);
 
-  // Fetch data when ready
+  // Handle QR fetch errors
   useEffect(() => {
-    if (!authLoading && !profileLoading && userProfile && isAuthenticated) {
-      fetchData();
-    }
-  }, [code, authLoading, isAuthenticated, profileLoading, userProfile]);
-
-  const fetchData = useCallback(async () => {
-    if (!code || !userProfile) return;
-
-    setLoading(true);
-    try {
-      // Fetch QR code
-      const { data: qrData, error: qrError } = await supabase
-        .from("qrcodes")
-        .select("*")
-        .eq("loqatr_id", code)
-        .maybeSingle();
-
-      if (qrError) throw qrError;
-
-      if (!qrData) {
-        toast({
-          title: "Tag not found",
-          description: "This QR code doesn't exist in our system.",
-          variant: "destructive",
-        });
-        navigate("/my-tags");
-        return;
-      }
-
-      // Verify ownership
-      if (qrData.assigned_to !== userProfile.id) {
-        toast({
-          title: "Access denied",
-          description: "You don't own this tag.",
-          variant: "destructive",
-        });
-        navigate("/my-tags");
-        return;
-      }
-
-      setQRCode(qrData);
-      setIsPublic(qrData.is_public);
-
-      // Fetch item data
-      if (qrData.item_id) {
-        const { data: itemData, error: itemError } = await supabase
-          .from("items")
-          .select("*")
-          .eq("id", qrData.item_id)
-          .maybeSingle();
-
-        if (itemError) throw itemError;
-
-        if (itemData) {
-          setItem(itemData);
-          setItemName(itemData.name);
-          setDescription(itemData.description || "");
-          setIconName(itemData.icon_name || "Package");
-
-          // Fetch item details
-          const { data: detailsData } = await supabase
-            .from("item_details")
-            .select("*, item_detail_fields(*)")
-            .eq("item_id", itemData.id);
-
-          if (detailsData) {
-            const mappedDetails = detailsData.map((d) => ({
-              id: crypto.randomUUID(),
-              fieldType: d.item_detail_fields?.type || "Other",
-              value: d.value,
-            }));
-            setItemDetails(mappedDetails);
-
-            // Check if item has an alternate owner
-            const hasItemOwnerName = mappedDetails.some((d) => d.fieldType === "Item owner name");
-            setIsItemOwner(!hasItemOwnerName);
-
-            // Store initial values for change detection
-            initialValuesRef.current = {
-              itemName: itemData.name,
-              isPublic: qrData.is_public,
-              description: itemData.description || "",
-              iconName: itemData.icon_name || "Package",
-              itemDetails: JSON.stringify(mappedDetails),
-              isItemOwner: !hasItemOwnerName,
-            };
-          } else {
-            initialValuesRef.current = {
-              itemName: itemData.name,
-              isPublic: qrData.is_public,
-              description: itemData.description || "",
-              iconName: itemData.icon_name || "Package",
-              itemDetails: JSON.stringify([]),
-              isItemOwner: true,
-            };
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching data:", error);
+    if (qrError) {
       toast({
-        title: "Error",
-        description: "Failed to load tag data.",
+        title: "Tag not found",
+        description: "This QR code doesn't exist in our system.",
         variant: "destructive",
       });
       navigate("/my-tags");
-    } finally {
-      setLoading(false);
     }
-  }, [code, userProfile, navigate, toast, setItemDetails, setIsItemOwner]);
+  }, [qrError, toast, navigate]);
+
+  // Verify ownership and initialize form when data loads
+  useEffect(() => {
+    if (qrLoading || !qrCode || formInitialized) return;
+
+    // Verify ownership
+    if (qrCode.assigned_to !== userProfile?.id) {
+      toast({
+        title: "Access denied",
+        description: "You don't own this tag.",
+        variant: "destructive",
+      });
+      navigate("/my-tags");
+      return;
+    }
+
+    // Initialize form state from fetched data
+    setIsPublic(qrCode.is_public);
+
+    if (item) {
+      setItemName(item.name);
+      setDescription(item.description || "");
+      setIconName(item.icon_name || "Package");
+    }
+
+    if (fetchedDetails.length > 0) {
+      setItemDetails(fetchedDetails);
+      const hasItemOwnerName = fetchedDetails.some((d) => d.fieldType === "Item owner name");
+      setIsItemOwner(!hasItemOwnerName);
+
+      initialValuesRef.current = {
+        itemName: item?.name || "",
+        isPublic: qrCode.is_public,
+        description: item?.description || "",
+        iconName: item?.icon_name || "Package",
+        itemDetails: JSON.stringify(fetchedDetails),
+        isItemOwner: !hasItemOwnerName,
+      };
+    } else {
+      initialValuesRef.current = {
+        itemName: item?.name || "",
+        isPublic: qrCode.is_public,
+        description: item?.description || "",
+        iconName: item?.icon_name || "Package",
+        itemDetails: JSON.stringify([]),
+        isItemOwner: true,
+      };
+    }
+
+    setFormInitialized(true);
+  }, [
+    qrLoading,
+    qrCode,
+    item,
+    fetchedDetails,
+    userProfile?.id,
+    formInitialized,
+    navigate,
+    toast,
+    setItemDetails,
+    setIsItemOwner,
+  ]);
 
   // Change detection
   const hasChanges = useCallback(() => {
@@ -282,7 +236,6 @@ export function useEditTagData({
 
     setSaving(true);
     try {
-      // Update item
       const { error: updateError } = await supabase
         .from("items")
         .update({
@@ -295,11 +248,9 @@ export function useEditTagData({
 
       if (updateError) throw updateError;
 
-      // Update item details
       await updateItemDetails(item.id, itemDetails);
 
-      // Update QR code public setting
-      const { error: qrError } = await supabase
+      const { error: qrUpdateError } = await supabase
         .from("qrcodes")
         .update({
           is_public: isPublic,
@@ -307,9 +258,8 @@ export function useEditTagData({
         })
         .eq("id", qrCode.id);
 
-      if (qrError) throw qrError;
+      if (qrUpdateError) throw qrUpdateError;
 
-      // Reset initial values to match saved state
       resetInitialValues();
 
       toast({
@@ -348,14 +298,12 @@ export function useEditTagData({
     try {
       const itemNameForNotif = item?.name || "Unknown item";
 
-      // Delete item details and item
       if (item?.id) {
         await supabase.from("item_details").delete().eq("item_id", item.id);
         await supabase.from("items").delete().eq("id", item.id);
       }
 
-      // Clear QR code assignment
-      const { error: qrError } = await supabase
+      const { error: qrUpdateError } = await supabase
         .from("qrcodes")
         .update({
           assigned_to: null,
@@ -366,7 +314,7 @@ export function useEditTagData({
         })
         .eq("id", qrCode.id);
 
-      if (qrError) throw qrError;
+      if (qrUpdateError) throw qrUpdateError;
 
       await notifyTagUnassigned(userProfile.id, itemNameForNotif);
 
@@ -389,18 +337,14 @@ export function useEditTagData({
     }
   }, [qrCode, userProfile, item, toast, navigate]);
 
-  // Computed value for alternate owner name
   const itemOwnerName = !isItemOwner
     ? itemDetails.find((d) => d.fieldType === "Item owner name")?.value || undefined
     : undefined;
 
   return {
-    // Data state
-    loading: loading || profileLoading,
+    loading: qrLoading || profileLoading || authLoading,
     qrCode,
     item,
-
-    // Form state
     itemName,
     setItemName,
     isPublic,
@@ -409,29 +353,19 @@ export function useEditTagData({
     setDescription,
     iconName,
     setIconName,
-
-    // Item details
     itemDetails,
     isItemOwner,
     addDetail,
     removeDetail,
     updateDetail,
     handleItemOwnerChange,
-
-    // Computed
     itemOwnerName,
-
-    // Change detection
     hasChanges,
     resetInitialValues,
-
-    // Actions
     handleSubmit,
     handleUnassign,
     saving,
     unassigning,
-
-    // Dialog
     showUnassignDialog,
     setShowUnassignDialog,
   };
