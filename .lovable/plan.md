@@ -1,75 +1,260 @@
 
 
-## Fix Critical RLS Policy Bug in `item_details` Table
+# Testing Strategy Implementation Plan
 
-### Problem Summary
+## Overview
 
-The current INSERT policy for the `item_details` table contains a logic error that allows any authenticated user who owns at least one QR code to insert item details for **any item in the system**, not just their own items.
+This plan establishes a comprehensive test suite for your LOQATR application, covering critical user flows, business logic, and edge functions. The goal is to move from zero coverage to meaningful protection against regressions.
 
-### The Bug
+## Testing Priorities
 
-**Current (Broken) Policy:**
-```sql
-(EXISTS ( SELECT 1
-   FROM qrcodes q
-  WHERE ((q.item_id = q.item_id) AND (q.assigned_to = get_user_id()))))
-```
+Based on your codebase, I've identified four testing tiers:
 
-The condition `q.item_id = q.item_id` is always `true` for every row in the `qrcodes` table (a column always equals itself). This means the policy only checks if the user owns **any** QR code, not if they own the specific item being inserted.
-
-### The Fix
-
-**Corrected Policy:**
-```sql
-(EXISTS ( SELECT 1
-   FROM qrcodes q
-  WHERE ((q.item_id = item_details.item_id) AND (q.assigned_to = get_user_id()))))
-```
-
-This correctly checks that the user owns a QR code linked to the **specific item** for which details are being inserted.
+| Priority | Area | Risk Level | Approach |
+|----------|------|------------|----------|
+| 1 | Pure utility functions | Low complexity | Unit tests (easy wins) |
+| 2 | Business logic hooks | Medium | Unit tests with mocks |
+| 3 | Page routing logic | High risk | Integration tests |
+| 4 | Edge functions | Critical | Deno tests |
 
 ---
 
-### Implementation
+## Phase 1: Unit Tests for Utilities (Quick Wins)
 
-**Database Migration:**
+These are pure functions with no external dependencies - easiest to test.
 
-1. Drop the existing buggy INSERT policy on `item_details`
-2. Create a new INSERT policy with the corrected condition that references `item_details.item_id`
+### 1.1 Password Strength Validation
+**File**: `src/lib/__tests__/passwordStrength.test.ts`
 
-```sql
--- Drop the buggy policy
-DROP POLICY IF EXISTS "Item owners can insert item_details" ON public.item_details;
+Tests for the `isPasswordStrong` function:
+- Rejects passwords under 8 characters
+- Requires uppercase, lowercase, number, special character
+- Returns true only when all requirements met
 
--- Create corrected policy
-CREATE POLICY "Item owners can insert item_details" 
-ON public.item_details 
-FOR INSERT 
-TO authenticated
-WITH CHECK (
-  EXISTS (
-    SELECT 1 FROM qrcodes q 
-    WHERE q.item_id = item_details.item_id 
-    AND q.assigned_to = get_user_id()
-  )
-);
+### 1.2 Utility Functions  
+**File**: `src/lib/__tests__/utils.test.ts`
+
+Tests for the `cn()` class merging utility:
+- Merges multiple class names
+- Handles conditional classes
+- Properly deduplicates Tailwind classes
+
+### 1.3 QR Code Configuration
+**File**: `src/lib/__tests__/qrCodeConfig.test.ts`
+
+Tests for `qrCodeConfig` and `getBaseLoqatrIdURL`:
+- Default configuration values
+- Gradient vs solid color modes
+- Square vs rounded styles
+- Error correction level settings
+
+---
+
+## Phase 2: Component Unit Tests
+
+### 2.1 PasswordStrengthIndicator Component
+**File**: `src/components/__tests__/PasswordStrengthIndicator.test.tsx`
+
+- Renders nothing for empty password
+- Shows "Very weak" for single character
+- Shows "Strong" when all requirements pass
+- Displays checkmarks for passed requirements
+
+### 2.2 Form Validation Schema Tests
+**File**: `src/pages/__tests__/authSchemas.test.ts`
+
+Test the Zod schemas used in AuthPage:
+- Login schema validation (email format, password length)
+- Signup schema validation (all required fields)
+- Password confirmation matching
+- Phone number format validation
+
+---
+
+## Phase 3: Routing Logic Tests (High Priority)
+
+### 3.1 QR Scan Router Logic
+**File**: `src/pages/__tests__/QRScanRouter.test.tsx`
+
+This is critical business logic that determines where users go:
+
+```text
+Test Cases:
++-----------------------+---------------------------+
+| QR Code State         | Expected Redirect         |
++-----------------------+---------------------------+
+| Doesn't exist         | Error message displayed   |
+| Unclaimed (no owner)  | /tag/:code (claim page)   |
+| Claimed, user=owner   | /my-tags/:code (edit)     |
+| Claimed, user≠owner   | /found/:code (finder)     |
+| Claimed, user=anon    | /found/:code (finder)     |
++-----------------------+---------------------------+
+```
+
+Requires mocking:
+- Supabase client responses
+- React Router navigation
+- useAuth hook
+
+### 3.2 Auth Page Redirect Logic
+**File**: `src/pages/__tests__/AuthPage.test.tsx`
+
+- Redirects authenticated users to home
+- Respects `redirect_after_auth` session storage
+- Mode switching (login/signup/forgot-password)
+
+---
+
+## Phase 4: Hook Tests with Mocks
+
+### 4.1 useAuth Hook
+**File**: `src/hooks/__tests__/useAuth.test.tsx`
+
+Tests for authentication context:
+- Throws error when used outside provider
+- Initial loading state is true
+- Updates user/session on auth state change
+- signUp/signIn/signOut call correct Supabase methods
+
+### 4.2 useMyTags Hook  
+**File**: `src/hooks/__tests__/useMyTags.test.tsx`
+
+- Returns empty array when no profile
+- Fetches tags with scan data in single queries
+- unassignTag mutation updates cache correctly
+- Handles errors gracefully
+
+---
+
+## Phase 5: Edge Function Tests (Deno)
+
+### 5.1 submit-finder-message Tests
+**File**: `supabase/functions/submit-finder-message/index.test.ts`
+
+```text
+Test Cases:
++--------------------------------+------------------+
+| Input                          | Expected Result  |
++--------------------------------+------------------+
+| Missing name                   | 400 Bad Request  |
+| Missing email AND phone        | 400 Bad Request  |
+| Valid data                     | 200 + loqatr_id  |
+| CORS preflight                 | 200 "ok"         |
++--------------------------------+------------------+
+```
+
+### 5.2 reveal-contact Tests
+**File**: `supabase/functions/reveal-contact/index.test.ts`
+
+- Rejects missing required fields
+- Verifies Turnstile token
+- Returns 429 on rate limit
+- Returns contact data on success
+
+---
+
+## Implementation Details
+
+### Test File Organization
+
+```text
+src/
+├── test/
+│   ├── setup.ts              (existing)
+│   ├── example.test.ts       (to be removed)
+│   └── mocks/
+│       ├── supabase.ts       (Supabase client mock)
+│       └── router.ts         (React Router mock)
+├── lib/
+│   └── __tests__/
+│       ├── utils.test.ts
+│       ├── passwordStrength.test.ts
+│       └── qrCodeConfig.test.ts
+├── components/
+│   └── __tests__/
+│       └── PasswordStrengthIndicator.test.tsx
+├── hooks/
+│   └── __tests__/
+│       ├── useAuth.test.tsx
+│       └── useMyTags.test.tsx
+└── pages/
+    └── __tests__/
+        ├── authSchemas.test.ts
+        └── QRScanRouter.test.tsx
+
+supabase/functions/
+├── submit-finder-message/
+│   ├── index.ts
+│   └── index.test.ts
+└── reveal-contact/
+    ├── index.ts  
+    └── index.test.ts
+```
+
+### Mock Setup Requirements
+
+**Supabase Mock** (`src/test/mocks/supabase.ts`):
+- Mock `supabase.auth` methods
+- Mock `supabase.from()` query builder with chainable methods
+- Mock `supabase.functions.invoke()`
+
+**Router Mock** (`src/test/mocks/router.ts`):
+- Mock `useNavigate`, `useParams`, `useSearchParams`
+- Track navigation calls for assertions
+
+### Test Helpers
+
+**Wrapper Component** for hooks that need providers:
+```typescript
+// Creates wrapper with QueryClient, AuthProvider, Router
+function createTestWrapper() { ... }
 ```
 
 ---
 
-### Security Impact
+## Technical Considerations
 
-| Before Fix | After Fix |
-|------------|-----------|
-| Any authenticated user with 1+ QR codes can insert details for ANY item | Users can only insert details for items linked to their own QR codes |
-| Data pollution/tampering possible | Proper ownership enforcement |
+### Mocking Strategy
+
+The tests will use Vitest's mocking capabilities:
+- `vi.mock()` for module mocks
+- `vi.spyOn()` for tracking calls
+- `vi.fn()` for mock implementations
+
+### Async Testing
+
+Many operations are async (Supabase calls, navigation):
+- Use `waitFor` from Testing Library
+- Use `act()` for state updates
+- Handle promise rejections in tests
+
+### Test Isolation
+
+Each test will:
+- Reset mocks with `beforeEach`
+- Clear query cache between tests
+- Restore all mocks with `afterEach`
 
 ---
 
-### Testing Verification
+## Estimated Test Count
 
-After applying the fix:
-1. Navigate to `/my-tags/LOQ-TEST-003` and verify you can still add/edit item details for your own items
-2. The claim tag flow should continue to work normally
-3. Users should not be able to insert details for items they don't own
+| Category | Files | Tests |
+|----------|-------|-------|
+| Utility functions | 3 | ~15 |
+| Components | 1 | ~6 |
+| Auth schemas | 1 | ~8 |
+| Routing logic | 2 | ~10 |
+| Hooks | 2 | ~12 |
+| Edge functions | 2 | ~10 |
+| **Total** | **11** | **~61** |
+
+---
+
+## Notes
+
+- The placeholder `example.test.ts` will be removed
+- Tests focus on business logic and user flows, not UI styling
+- Edge function tests use Deno's built-in test runner
+- Frontend tests run via `npm test` or `vitest`
 
