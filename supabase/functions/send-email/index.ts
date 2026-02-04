@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Webhook } from "https://esm.sh/standardwebhooks@1.0.0";
 import { Resend } from "https://esm.sh/resend@4.0.0";
+import { createHmac, timingSafeEqual } from "node:crypto";
 
 import { welcomeEmail } from "./_templates/welcome.ts";
 import { otpEmail } from "./_templates/otp.ts";
@@ -40,6 +40,44 @@ interface AuthEmailPayload {
   };
 }
 
+// Verify Supabase Auth Hook signature
+function verifySupabaseWebhook(
+  payload: string,
+  signature: string | null,
+  secret: string
+): boolean {
+  if (!signature) {
+    console.log("No signature header provided");
+    return false;
+  }
+
+  // Extract the base64 secret from the Supabase format: v1,whsec_<base64secret>
+  const base64Secret = secret.replace("v1,whsec_", "");
+  const secretBytes = Uint8Array.from(atob(base64Secret), (c) => c.charCodeAt(0));
+
+  // Parse signature header - format: v1,<base64signature>
+  const signatureParts = signature.split(",");
+  if (signatureParts.length < 2) {
+    console.log("Invalid signature format");
+    return false;
+  }
+
+  const signatureBase64 = signatureParts[1];
+  const expectedSignature = Uint8Array.from(atob(signatureBase64), (c) => c.charCodeAt(0));
+
+  // Compute HMAC-SHA256
+  const hmac = createHmac("sha256", secretBytes);
+  hmac.update(payload);
+  const computedSignature = new Uint8Array(hmac.digest());
+
+  // Timing-safe comparison
+  if (computedSignature.length !== expectedSignature.length) {
+    return false;
+  }
+
+  return timingSafeEqual(computedSignature, expectedSignature);
+}
+
 const handler = async (req: Request): Promise<Response> => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -64,33 +102,16 @@ const handler = async (req: Request): Promise<Response> => {
     // Get the raw payload for signature verification
     const payload = await req.text();
     
-    // Normalize headers to lowercase for standardwebhooks compatibility
-    const rawHeaders = Object.fromEntries(req.headers);
-    const headers: Record<string, string> = {};
-    for (const [key, value] of Object.entries(rawHeaders)) {
-      headers[key.toLowerCase()] = value;
-    }
-
+    // Get signature from header (Supabase uses x-supabase-signature)
+    const signature = req.headers.get("x-supabase-signature");
+    
     // Debug: Log all incoming headers to diagnose issues
-    console.log("All incoming headers:", Object.keys(headers));
-    console.log("Webhook headers received:", {
-      "webhook-id": headers["webhook-id"],
-      "webhook-timestamp": headers["webhook-timestamp"],
-      "webhook-signature": headers["webhook-signature"] ? "present" : "missing",
-    });
+    console.log("All incoming headers:", [...req.headers.keys()]);
+    console.log("Signature header:", signature ? "present" : "missing");
 
     // Verify webhook signature
-    // Supabase webhook secrets are in format: v1,whsec_<base64secret>
-    // The standardwebhooks library expects just the raw base64 secret
-    const webhookSecret = SEND_EMAIL_HOOK_SECRET.replace("v1,whsec_", "");
-    
-    const wh = new Webhook(webhookSecret);
-    let authPayload: AuthEmailPayload;
-
-    try {
-      authPayload = wh.verify(payload, headers) as AuthEmailPayload;
-    } catch (verifyError) {
-      console.error("Webhook signature verification failed:", verifyError);
+    if (!verifySupabaseWebhook(payload, signature, SEND_EMAIL_HOOK_SECRET)) {
+      console.error("Webhook signature verification failed");
       return new Response(
         JSON.stringify({
           error: {
@@ -104,6 +125,11 @@ const handler = async (req: Request): Promise<Response> => {
         }
       );
     }
+
+    console.log("Webhook signature verified successfully");
+
+    // Parse the payload
+    const authPayload: AuthEmailPayload = JSON.parse(payload);
 
     const { user, email_data } = authPayload;
     const { token, token_hash, redirect_to, email_action_type, site_url } = email_data;
