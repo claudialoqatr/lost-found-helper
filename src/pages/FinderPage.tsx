@@ -436,9 +436,10 @@ export default function FinderPage() {
               />
             ) : (
               <ContactRevealGate
-                scanId={scanId}
+                qrCodeId={qrCode?.id || 0}
                 qrIdentifier={code || ""}
                 displayOwnerName={getDisplayOwnerName()}
+                location={location}
                 onContactRevealed={setRevealedContact}
               />
             )

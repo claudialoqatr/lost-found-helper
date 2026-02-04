@@ -7,9 +7,12 @@ const corsHeaders = {
 };
 
 interface RevealRequest {
-  scan_id: number;
+  qr_code_id: number;
   qr_identifier: string;
   turnstile_token: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  address?: string | null;
 }
 
 Deno.serve(async (req) => {
@@ -20,10 +23,10 @@ Deno.serve(async (req) => {
 
   try {
     const body: RevealRequest = await req.json();
-    const { scan_id, qr_identifier, turnstile_token } = body;
+    const { qr_code_id, qr_identifier, turnstile_token, latitude, longitude, address } = body;
 
-    if (!scan_id || !qr_identifier || !turnstile_token) {
-      console.error("Missing required fields:", { scan_id, qr_identifier, hasTurnstileToken: !!turnstile_token });
+    if (!qr_code_id || !qr_identifier || !turnstile_token) {
+      console.error("Missing required fields:", { qr_code_id, qr_identifier, hasTurnstileToken: !!turnstile_token });
       return new Response(
         JSON.stringify({ error: "Missing required fields" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -36,7 +39,7 @@ Deno.serve(async (req) => {
       || req.headers.get("x-real-ip")
       || "0.0.0.0";
 
-    console.log("Reveal contact request:", { scan_id, qr_identifier, clientIp });
+    console.log("Reveal contact request:", { qr_code_id, qr_identifier, clientIp });
 
     // Verify Turnstile token with Cloudflare
     const turnstileSecret = Deno.env.get("TURNSTILE_SECRET_KEY");
@@ -74,21 +77,35 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // First, update the scan with the IP address (for rate limiting)
-    const { error: updateError } = await supabase
+    // Create scan record with IP address (using service role to bypass RLS)
+    const { data: scanData, error: scanError } = await supabase
       .from("scans")
-      .update({ ip_address: clientIp })
-      .eq("id", scan_id);
+      .insert({
+        qr_code_id,
+        latitude,
+        longitude,
+        address,
+        is_owner: false,
+        ip_address: clientIp,
+      })
+      .select("id")
+      .single();
 
-    if (updateError) {
-      console.error("Failed to update scan with IP:", updateError);
-      // Continue anyway, rate limiting will still work for future requests
+    if (scanError) {
+      console.error("Failed to create scan:", scanError);
+      return new Response(
+        JSON.stringify({ error: "Failed to record scan" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
+
+    const scanId = scanData.id;
+    console.log("Scan created with ID:", scanId);
 
     // Call the secure reveal function
     const { data, error } = await supabase.rpc("reveal_item_contact", {
       target_qr_id: qr_identifier,
-      current_scan_id: scan_id,
+      current_scan_id: scanId,
     });
 
     if (error) {
@@ -116,7 +133,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log("Contact revealed successfully for scan:", scan_id);
+    console.log("Contact revealed successfully for scan:", scanId);
     return new Response(
       JSON.stringify({ success: true, contact: data[0] }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
