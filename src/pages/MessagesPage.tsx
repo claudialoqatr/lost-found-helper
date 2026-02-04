@@ -1,7 +1,7 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useMessages } from "@/hooks/useMessages";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,118 +10,24 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MessageSquare, User, Mail, Phone, Clock, Package, MapPin, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 
-const PAGE_SIZE = 10;
-
-interface MessageWithLocation {
-  id: number;
-  name: string | null;
-  email: string | null;
-  phone: string | null;
-  message: string | null;
-  created_at: string | null;
-  item_id: number | null;
-  item: { id: number; name: string } | null;
-  location: string | null;
-}
-
 export default function MessagesPage() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [messages, setMessages] = useState<MessageWithLocation[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(true);
-  const [totalCount, setTotalCount] = useState<number | null>(null);
+  const {
+    messages,
+    totalCount,
+    loading,
+    loadingMore,
+    error,
+    hasMore,
+    loadMore,
+  } = useMessages();
 
   useEffect(() => {
     if (!authLoading && !user) {
       navigate("/auth");
     }
   }, [user, authLoading, navigate]);
-
-  const fetchMessages = useCallback(async (offset: number = 0, append: boolean = false) => {
-    try {
-      if (append) {
-        setLoadingMore(true);
-      } else {
-        setLoading(true);
-      }
-
-      // Fetch paginated messages
-      const { data: loqatrsData, error: fetchError, count } = await supabase
-        .from("loqatrs")
-        .select(`
-          id,
-          name,
-          email,
-          phone,
-          message,
-          created_at,
-          item_id,
-          item:items (
-            id,
-            name
-          )
-        `, { count: "exact" })
-        .order("created_at", { ascending: false })
-        .range(offset, offset + PAGE_SIZE - 1);
-
-      if (fetchError) throw fetchError;
-
-      // Store total count on first fetch
-      if (!append && count !== null) {
-        setTotalCount(count);
-      }
-
-      // Check if there are more messages
-      const fetchedCount = loqatrsData?.length || 0;
-      setHasMore(fetchedCount === PAGE_SIZE);
-
-      // Fetch locations from notifications (linked via loqatr_message_id)
-      const loqatrIds = (loqatrsData || []).map((l) => l.id);
-      const { data: notificationsData } = await supabase
-        .from("notifications")
-        .select("loqatr_message_id, location")
-        .in("loqatr_message_id", loqatrIds)
-        .not("location", "is", null);
-
-      // Map location to messages
-      const locationMap = new Map<number, string>();
-      (notificationsData || []).forEach((n) => {
-        if (n.loqatr_message_id && n.location) {
-          locationMap.set(n.loqatr_message_id, n.location);
-        }
-      });
-
-      const messagesWithLocation: MessageWithLocation[] = (loqatrsData || []).map((msg) => ({
-        ...msg,
-        location: locationMap.get(msg.id) || null,
-      }));
-
-      if (append) {
-        setMessages((prev) => [...prev, ...messagesWithLocation]);
-      } else {
-        setMessages(messagesWithLocation);
-      }
-    } catch (err) {
-      console.error("Failed to fetch messages:", err);
-      setError("Failed to load messages. Please try again.");
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!authLoading && user) {
-      fetchMessages(0, false);
-    }
-  }, [user, authLoading, fetchMessages]);
-
-  const handleLoadMore = () => {
-    fetchMessages(messages.length, true);
-  };
 
   if (authLoading || loading) {
     return (
@@ -157,7 +63,7 @@ export default function MessagesPage() {
         {error && (
           <Card className="border-destructive/50 bg-destructive/10 mb-6">
             <CardContent className="pt-6">
-              <p className="text-destructive">{error}</p>
+              <p className="text-destructive">{error.message}</p>
             </CardContent>
           </Card>
         )}
@@ -254,7 +160,7 @@ export default function MessagesPage() {
               <div className="flex justify-center pt-4">
                 <Button
                   variant="outline"
-                  onClick={handleLoadMore}
+                  onClick={loadMore}
                   disabled={loadingMore}
                 >
                   {loadingMore ? (

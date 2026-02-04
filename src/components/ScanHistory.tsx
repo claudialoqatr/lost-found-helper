@@ -1,48 +1,14 @@
-import { useEffect, useState } from "react";
 import { MapPin, Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { supabase } from "@/integrations/supabase/client";
+import { useScanHistory } from "@/hooks/useScanHistory";
 import { format } from "date-fns";
-
-interface Scan {
-  id: number;
-  scanned_at: string | null;
-  address: string | null;
-  latitude: number | null;
-  longitude: number | null;
-  is_owner: boolean | null;
-}
 
 interface ScanHistoryProps {
   qrCodeId: number;
 }
 
 export function ScanHistory({ qrCodeId }: ScanHistoryProps) {
-  const [scans, setScans] = useState<Scan[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchScans = async () => {
-      setLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from("scans")
-          .select("id, scanned_at, address, latitude, longitude, is_owner")
-          .eq("qr_code_id", qrCodeId)
-          .order("scanned_at", { ascending: false })
-          .limit(5);
-
-        if (error) throw error;
-        setScans(data || []);
-      } catch (error) {
-        console.error("Error fetching scan history:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchScans();
-  }, [qrCodeId]);
+  const { scans, loading } = useScanHistory(qrCodeId);
 
   if (loading) {
     return (
