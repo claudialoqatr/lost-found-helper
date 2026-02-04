@@ -13,7 +13,7 @@ import { QRCodeBatch } from "@/types";
  */
 export default function BatchDetailPage() {
   const { batchId } = useParams<{ batchId: string }>();
-  const { batches, isLoading, fetchBatchQRCodes, markAsDownloaded } = useBatches();
+  const { batches, isLoading, fetchBatchQRCodes, markAsDownloaded, markAsPrinted } = useBatches();
   const [loqatrIds, setLoqatrIds] = useState<string[]>([]);
   const [loadingQRCodes, setLoadingQRCodes] = useState(true);
 
@@ -31,6 +31,12 @@ export default function BatchDetailPage() {
   const handleDownloaded = () => {
     if (batchId) {
       markAsDownloaded.mutate(Number(batchId));
+    }
+  };
+
+  const handlePrinted = () => {
+    if (batchId) {
+      markAsPrinted.mutate(Number(batchId));
     }
   };
 
@@ -130,6 +136,7 @@ export default function BatchDetailPage() {
             batch={batch}
             loqatrIds={loqatrIds}
             onDownloaded={handleDownloaded}
+            onPrinted={handlePrinted}
           />
         )}
 
