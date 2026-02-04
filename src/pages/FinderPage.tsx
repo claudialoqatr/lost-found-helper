@@ -316,7 +316,7 @@ export default function FinderPage() {
             <h1 className="text-3xl font-bold mb-3">
               You have found{" "}
               <span className="gradient-loqatr-text">
-                {qrCode?.is_public ? `${getDisplayOwnerName()}'s` : "Someone's"}
+                {getDisplayOwnerName()}'s
               </span>{" "}
               {item?.name || "Item"}!
             </h1>
