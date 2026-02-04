@@ -29,7 +29,8 @@ export function ScanHistory({ qrCodeId }: ScanHistoryProps) {
           .from("scans")
           .select("id, scanned_at, address, latitude, longitude, is_owner")
           .eq("qr_code_id", qrCodeId)
-          .order("scanned_at", { ascending: false });
+          .order("scanned_at", { ascending: false })
+          .limit(5);
 
         if (error) throw error;
         setScans(data || []);
