@@ -1,61 +1,54 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Unlink } from "lucide-react";
+import { Unlink } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { ScanHistory } from "@/components/ScanHistory";
 import { UnassignTagDialog } from "@/components/UnassignTagDialog";
-import { ItemForm, ItemDetailsEditor, ContactDetailsCard, LoqatrIdCard, type ItemDetail } from "@/components/tag";
+import { ItemForm, ItemDetailsEditor, ContactDetailsCard, LoqatrIdCard } from "@/components/tag";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserProfile } from "@/hooks/useUserProfile";
+import { useItemDetailsManager } from "@/hooks/useItemDetailsManager";
 import { supabase } from "@/integrations/supabase/client";
 import { notifyTagUnassigned } from "@/lib/notifications";
-
-interface UserProfile {
-  id: number;
-  name: string;
-  email: string;
-  phone: string | null;
-}
-
-interface QRCodeData {
-  id: number;
-  loqatr_id: string;
-  is_public: boolean;
-  item_id: number | null;
-  assigned_to: number | null;
-}
-
-interface ItemData {
-  id: number;
-  name: string;
-  description: string | null;
-}
+import { PageLoadingState, PageHeader, BackButton, GradientButton, PoweredByFooter } from "@/components/shared";
+import type { QRCodeData, ItemInfo } from "@/types";
 
 export default function EditTagPage() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
+  const { userProfile, loading: profileLoading } = useUserProfile();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [qrCode, setQRCode] = useState<QRCodeData | null>(null);
-  const [item, setItem] = useState<ItemData | null>(null);
+  const [item, setItem] = useState<ItemInfo | null>(null);
 
   // Form state
   const [itemName, setItemName] = useState("");
   const [isPublic, setIsPublic] = useState(true);
   const [description, setDescription] = useState("");
-  const [itemDetails, setItemDetails] = useState<ItemDetail[]>([]);
-  const [isItemOwner, setIsItemOwner] = useState(true);
 
   // Unassign dialog state
   const [showUnassignDialog, setShowUnassignDialog] = useState(false);
   const [unassigning, setUnassigning] = useState(false);
+
+  // Use the shared item details manager hook
+  const {
+    itemDetails,
+    setItemDetails,
+    isItemOwner,
+    setIsItemOwner,
+    addDetail,
+    removeDetail,
+    updateDetail,
+    handleItemOwnerChange,
+  } = useItemDetailsManager();
 
   const isAuthenticated = !!user;
 
@@ -66,17 +59,16 @@ export default function EditTagPage() {
       return;
     }
 
-    if (!authLoading) {
+    if (!authLoading && !profileLoading && userProfile) {
       fetchData();
     }
-  }, [code, authLoading, isAuthenticated]);
+  }, [code, authLoading, isAuthenticated, profileLoading, userProfile]);
 
   const fetchData = async () => {
-    if (!code) return;
+    if (!code || !userProfile) return;
 
     setLoading(true);
     try {
-      // Fetch QR code by loqatr_id
       const { data: qrData, error: qrError } = await supabase
         .from("qrcodes")
         .select("*")
@@ -95,22 +87,8 @@ export default function EditTagPage() {
         return;
       }
 
-      // Fetch user profile
-      let currentUserProfile: UserProfile | null = null;
-      if (user) {
-        const { data: profileData, error: profileError } = await supabase
-          .from("users")
-          .select("*")
-          .eq("auth_id", user.id)
-          .maybeSingle();
-
-        if (profileError) throw profileError;
-        currentUserProfile = profileData;
-        setUserProfile(profileData);
-      }
-
       // If not the owner, redirect
-      if (!currentUserProfile || qrData.assigned_to !== currentUserProfile.id) {
+      if (qrData.assigned_to !== userProfile.id) {
         toast({
           title: "Access denied",
           description: "You don't own this tag.",
@@ -150,7 +128,7 @@ export default function EditTagPage() {
               value: d.value,
             }));
             setItemDetails(mappedDetails);
-            
+
             // Check if item has an alternate owner
             const hasItemOwnerName = mappedDetails.some((d) => d.fieldType === "Item owner name");
             setIsItemOwner(!hasItemOwnerName);
@@ -170,40 +148,6 @@ export default function EditTagPage() {
     }
   };
 
-  const addDetail = () => {
-    setItemDetails([...itemDetails, { id: crypto.randomUUID(), fieldType: "Emergency contact", value: "" }]);
-  };
-
-  const removeDetail = (id: string) => {
-    const detail = itemDetails.find((d) => d.id === id);
-    // Prevent removing "Item owner name" if isItemOwner is false
-    if (detail?.fieldType === "Item owner name" && !isItemOwner) {
-      return;
-    }
-    setItemDetails(itemDetails.filter((d) => d.id !== id));
-  };
-
-  const updateDetail = (id: string, field: "fieldType" | "value", value: string) => {
-    setItemDetails(itemDetails.map((d) => (d.id === id ? { ...d, [field]: value } : d)));
-  };
-
-  const handleItemOwnerChange = (isOwner: boolean) => {
-    setIsItemOwner(isOwner);
-    if (!isOwner) {
-      // Add "Item owner name" detail if not already present
-      const hasOwnerName = itemDetails.some((d) => d.fieldType === "Item owner name");
-      if (!hasOwnerName) {
-        setItemDetails([
-          { id: crypto.randomUUID(), fieldType: "Item owner name", value: "" },
-          ...itemDetails,
-        ]);
-      }
-    } else {
-      // Remove "Item owner name" detail when toggled back on
-      setItemDetails(itemDetails.filter((d) => d.fieldType !== "Item owner name"));
-    }
-  };
-
   const handleSubmit = async () => {
     if (!itemName.trim()) {
       toast({
@@ -214,7 +158,6 @@ export default function EditTagPage() {
       return;
     }
 
-    // Validate item owner name if not the owner
     if (!isItemOwner) {
       const ownerNameDetail = itemDetails.find((d) => d.fieldType === "Item owner name");
       if (!ownerNameDetail?.value.trim()) {
@@ -246,12 +189,10 @@ export default function EditTagPage() {
       // Delete old details and insert new ones
       await supabase.from("item_details").delete().eq("item_id", item.id);
 
-      // Insert item details
       if (itemDetails.length > 0) {
         for (const detail of itemDetails) {
           if (!detail.value.trim()) continue;
 
-          // Get or create field type
           let { data: fieldData } = await supabase
             .from("item_detail_fields")
             .select("id")
@@ -311,13 +252,11 @@ export default function EditTagPage() {
     try {
       const itemNameForNotif = item?.name || "Unknown item";
 
-      // Delete item details if there's an item
       if (item?.id) {
         await supabase.from("item_details").delete().eq("item_id", item.id);
         await supabase.from("items").delete().eq("id", item.id);
       }
 
-      // Reset the QR code
       const { error: qrError } = await supabase
         .from("qrcodes")
         .update({
@@ -352,39 +291,24 @@ export default function EditTagPage() {
     }
   };
 
-  if (authLoading || loading) {
-    return (
-      <AppLayout>
-        <div className="container mx-auto px-4 py-8 flex items-center justify-center min-h-[50vh]">
-          <div className="animate-pulse text-muted-foreground">Loading...</div>
-        </div>
-      </AppLayout>
-    );
+  if (authLoading || profileLoading || loading) {
+    return <PageLoadingState />;
   }
 
   return (
     <AppLayout>
       <div className="container mx-auto px-4 lg:px-8 py-6 lg:py-12 pb-24">
         <div className="max-w-2xl mx-auto lg:max-w-5xl">
-          {/* Go Back */}
-          <Button variant="outline" size="sm" className="mb-6" onClick={() => navigate("/my-tags")}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to My Tags
-          </Button>
+          <BackButton label="Back to My Tags" to="/my-tags" className="mb-6" />
 
-          {/* Two column layout on desktop */}
           <div className="lg:grid lg:grid-cols-2 lg:gap-12">
             {/* Left Column - Form */}
             <div className="space-y-6">
-              {/* Title */}
-              <div>
-                <h1 className="text-3xl lg:text-4xl font-bold mb-2">Edit Item</h1>
-                <p className="text-muted-foreground lg:text-lg">
-                  Update the information for your tagged item. When found, the finder will see this information.
-                </p>
-              </div>
+              <PageHeader
+                title="Edit Item"
+                description="Update the information for your tagged item. When found, the finder will see this information."
+              />
 
-              {/* Item Form */}
               <ItemForm
                 itemName={itemName}
                 setItemName={setItemName}
@@ -394,7 +318,6 @@ export default function EditTagPage() {
                 onItemOwnerChange={handleItemOwnerChange}
               />
 
-              {/* Item Details */}
               <ItemDetailsEditor
                 details={itemDetails}
                 onAdd={addDetail}
@@ -402,7 +325,6 @@ export default function EditTagPage() {
                 onUpdate={updateDetail}
               />
 
-              {/* Description */}
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
                 <Textarea
@@ -415,15 +337,16 @@ export default function EditTagPage() {
                 />
               </div>
 
-              {/* Submit Button - visible on mobile */}
+              {/* Submit Button - mobile */}
               <div className="lg:hidden space-y-3">
-                <Button
-                  className="w-full gradient-loqatr text-white font-semibold h-12 text-base"
+                <GradientButton
+                  className="w-full"
                   onClick={handleSubmit}
-                  disabled={saving}
+                  loading={saving}
+                  loadingText="Saving..."
                 >
-                  {saving ? "Saving..." : "Update Item"}
-                </Button>
+                  Update Item
+                </GradientButton>
                 <Button
                   variant="outline"
                   className="w-full text-destructive hover:text-destructive"
@@ -435,26 +358,22 @@ export default function EditTagPage() {
               </div>
             </div>
 
-            {/* Right Column - Info & Actions (Desktop) */}
+            {/* Right Column */}
             <div className="space-y-6 mt-8 lg:mt-0">
-              {/* Contact Details Card */}
               <ContactDetailsCard user={userProfile} />
-
-              {/* Loqatr ID */}
               {qrCode && <LoqatrIdCard loqatrId={qrCode.loqatr_id} />}
-
-              {/* Scan History */}
               {qrCode && <ScanHistory qrCodeId={qrCode.id} />}
 
-              {/* Actions - visible on desktop */}
+              {/* Actions - desktop */}
               <div className="hidden lg:block space-y-3">
-                <Button
-                  className="w-full gradient-loqatr text-white font-semibold h-12 text-base"
+                <GradientButton
+                  className="w-full"
                   onClick={handleSubmit}
-                  disabled={saving}
+                  loading={saving}
+                  loadingText="Saving..."
                 >
-                  {saving ? "Saving..." : "Update Item"}
-                </Button>
+                  Update Item
+                </GradientButton>
                 <Button
                   variant="outline"
                   className="w-full text-destructive hover:text-destructive"
@@ -465,16 +384,12 @@ export default function EditTagPage() {
                 </Button>
               </div>
 
-              {/* Footer */}
-              <p className="text-center text-sm text-muted-foreground">
-                Powered by <span className="font-semibold">Waterfall Digital</span>
-              </p>
+              <PoweredByFooter />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Unassign Confirmation Dialog */}
       <UnassignTagDialog
         open={showUnassignDialog}
         onOpenChange={setShowUnassignDialog}

@@ -2,12 +2,10 @@ import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ITEM_DETAIL_FIELD_TYPES, type ItemDetail } from "@/types";
 
-export interface ItemDetail {
-  id: string;
-  fieldType: string;
-  value: string;
-}
+// Re-export ItemDetail for backward compatibility
+export type { ItemDetail };
 
 interface ItemDetailsEditorProps {
   details: ItemDetail[];
@@ -15,8 +13,6 @@ interface ItemDetailsEditorProps {
   onRemove: (id: string) => void;
   onUpdate: (id: string, field: "fieldType" | "value", value: string) => void;
 }
-
-const FIELD_TYPES = ["Item owner name", "Emergency contact", "Return address", "Reward offer", "Medical info", "Pet info", "Other"];
 
 export function ItemDetailsEditor({ details, onAdd, onRemove, onUpdate }: ItemDetailsEditorProps) {
   return (
@@ -30,7 +26,7 @@ export function ItemDetailsEditor({ details, onAdd, onRemove, onUpdate }: ItemDe
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {FIELD_TYPES.map((type) => (
+                {ITEM_DETAIL_FIELD_TYPES.map((type) => (
                   <SelectItem key={type} value={type}>
                     {type}
                   </SelectItem>

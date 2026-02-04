@@ -8,20 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MessageSquare, User, Mail, Phone, Clock, Package } from "lucide-react";
 import { format } from "date-fns";
-
-interface MessageWithItem {
-  id: number;
-  name: string | null;
-  email: string | null;
-  phone: string | null;
-  message: string | null;
-  created_at: string | null;
-  item_id: number | null;
-  item?: {
-    id: number;
-    name: string;
-  } | null;
-}
+import type { MessageWithItem } from "@/types";
 
 export default function MessagesPage() {
   const { user, loading: authLoading } = useAuth();
