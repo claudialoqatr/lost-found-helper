@@ -251,9 +251,30 @@ Each test will:
 
 ---
 
+## Implementation Progress
+
+### ✅ Completed
+
+- [x] **Phase 1.1**: Password strength validation tests (12 tests)
+- [x] **Phase 1.2**: Utils `cn()` tests (19 tests)  
+- [x] **Phase 1.3**: QR code configuration tests (25 tests)
+- [x] **Phase 3.1**: QRScanRouter routing logic tests (10 tests)
+- [x] Test mocks infrastructure (Supabase, Router)
+- [x] Removed placeholder `example.test.ts`
+
+**Total: 66 tests passing**
+
+### 🔲 Remaining
+
+- [ ] Phase 2: Component tests (PasswordStrengthIndicator, Auth schemas)
+- [ ] Phase 3.2: AuthPage redirect logic tests
+- [ ] Phase 4: Hook tests (useAuth, useMyTags)
+- [ ] Phase 5: Edge function tests (Deno)
+
+---
+
 ## Notes
 
-- The placeholder `example.test.ts` will be removed
 - Tests focus on business logic and user flows, not UI styling
 - Edge function tests use Deno's built-in test runner
 - Frontend tests run via `npm test` or `vitest`
