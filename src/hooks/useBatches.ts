@@ -28,20 +28,30 @@ export function useBatches() {
 
       if (batchError) throw batchError;
 
-      // Fetch QR code counts for each batch
-      const batchesWithCounts: QRCodeBatch[] = await Promise.all(
-        (batchData || []).map(async (batch) => {
-          const { count } = await supabase
-            .from("qrcodes")
-            .select("*", { count: "exact", head: true })
-            .eq("batch_id", batch.id);
+      if (!batchData || batchData.length === 0) return [];
 
-          return {
-            ...batch,
-            qrcode_count: count || 0,
-          };
-        })
-      );
+      // Get all batch IDs
+      const batchIds = batchData.map((b) => b.id);
+
+      // Fetch all QR codes for these batches in a single query
+      const { data: qrcodesData } = await supabase
+        .from("qrcodes")
+        .select("batch_id")
+        .in("batch_id", batchIds);
+
+      // Build a count map: batch_id -> count
+      const countMap = new Map<number, number>();
+      (qrcodesData || []).forEach((qr) => {
+        if (qr.batch_id) {
+          countMap.set(qr.batch_id, (countMap.get(qr.batch_id) || 0) + 1);
+        }
+      });
+
+      // Merge counts into batches
+      const batchesWithCounts: QRCodeBatch[] = batchData.map((batch) => ({
+        ...batch,
+        qrcode_count: countMap.get(batch.id) || 0,
+      }));
 
       return batchesWithCounts;
     },
