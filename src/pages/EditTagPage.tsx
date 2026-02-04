@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Unlink } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
@@ -12,9 +12,10 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useItemDetailsManager } from "@/hooks/useItemDetailsManager";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { supabase } from "@/integrations/supabase/client";
 import { notifyTagUnassigned } from "@/lib/notifications";
-import { PageLoadingState, PageHeader, BackButton, GradientButton } from "@/components/shared";
+import { PageLoadingState, PageHeader, BackButton, GradientButton, UnsavedChangesDialog } from "@/components/shared";
 import type { QRCodeData, ItemInfo } from "@/types";
 
 export default function EditTagPage() {
@@ -35,6 +36,16 @@ export default function EditTagPage() {
   const [description, setDescription] = useState("");
   const [iconName, setIconName] = useState("Package");
 
+  // Track initial values for change detection
+  const initialValuesRef = useRef<{
+    itemName: string;
+    isPublic: boolean;
+    description: string;
+    iconName: string;
+    itemDetails: string;
+    isItemOwner: boolean;
+  } | null>(null);
+
   // Unassign dialog state
   const [showUnassignDialog, setShowUnassignDialog] = useState(false);
   const [unassigning, setUnassigning] = useState(false);
@@ -52,6 +63,24 @@ export default function EditTagPage() {
   } = useItemDetailsManager();
 
   const isAuthenticated = !!user;
+
+  // Detect unsaved changes
+  const hasChanges = useCallback(() => {
+    if (!initialValuesRef.current) return false;
+    const initial = initialValuesRef.current;
+    return (
+      itemName !== initial.itemName ||
+      isPublic !== initial.isPublic ||
+      description !== initial.description ||
+      iconName !== initial.iconName ||
+      JSON.stringify(itemDetails) !== initial.itemDetails ||
+      isItemOwner !== initial.isItemOwner
+    );
+  }, [itemName, isPublic, description, iconName, itemDetails, isItemOwner]);
+
+  const { showDialog, confirmNavigation, cancelNavigation } = useUnsavedChanges({
+    hasChanges,
+  });
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -134,6 +163,26 @@ export default function EditTagPage() {
             // Check if item has an alternate owner
             const hasItemOwnerName = mappedDetails.some((d) => d.fieldType === "Item owner name");
             setIsItemOwner(!hasItemOwnerName);
+
+            // Store initial values for change detection
+            initialValuesRef.current = {
+              itemName: itemData.name,
+              isPublic: qrData.is_public,
+              description: itemData.description || "",
+              iconName: itemData.icon_name || "Package",
+              itemDetails: JSON.stringify(mappedDetails),
+              isItemOwner: !hasItemOwnerName,
+            };
+          } else {
+            // No details, still store initial values
+            initialValuesRef.current = {
+              itemName: itemData.name,
+              isPublic: qrData.is_public,
+              description: itemData.description || "",
+              iconName: itemData.icon_name || "Package",
+              itemDetails: JSON.stringify([]),
+              isItemOwner: true,
+            };
           }
         }
       }
@@ -231,6 +280,16 @@ export default function EditTagPage() {
         .eq("id", qrCode.id);
 
       if (qrError) throw qrError;
+
+      // Update initial values to match saved state
+      initialValuesRef.current = {
+        itemName: itemName.trim(),
+        isPublic,
+        description: description.trim(),
+        iconName,
+        itemDetails: JSON.stringify(itemDetails),
+        isItemOwner,
+      };
 
       toast({
         title: "Item updated!",
@@ -399,6 +458,12 @@ export default function EditTagPage() {
         onConfirm={handleUnassign}
         isLoading={unassigning}
         tagId={qrCode?.loqatr_id}
+      />
+
+      <UnsavedChangesDialog
+        open={showDialog}
+        onConfirm={confirmNavigation}
+        onCancel={cancelNavigation}
       />
     </AppLayout>
   );
