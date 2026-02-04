@@ -6,14 +6,25 @@ import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MessageSquare, User, Mail, Phone, Clock, Package } from "lucide-react";
+import { MessageSquare, User, Mail, Phone, Clock, Package, MapPin } from "lucide-react";
 import { format } from "date-fns";
-import type { MessageWithItem } from "@/types";
+
+interface MessageWithLocation {
+  id: number;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  message: string | null;
+  created_at: string | null;
+  item_id: number | null;
+  item: { id: number; name: string } | null;
+  location: string | null;
+}
 
 export default function MessagesPage() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [messages, setMessages] = useState<MessageWithItem[]>([]);
+  const [messages, setMessages] = useState<MessageWithLocation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,7 +37,8 @@ export default function MessagesPage() {
   useEffect(() => {
     async function fetchMessages() {
       try {
-        const { data, error: fetchError } = await supabase
+        // Fetch messages
+        const { data: loqatrsData, error: fetchError } = await supabase
           .from("loqatrs")
           .select(`
             id,
@@ -44,7 +56,29 @@ export default function MessagesPage() {
           .order("created_at", { ascending: false });
 
         if (fetchError) throw fetchError;
-        setMessages(data as MessageWithItem[] || []);
+
+        // Fetch locations from notifications (linked via loqatr_message_id)
+        const loqatrIds = (loqatrsData || []).map((l) => l.id);
+        const { data: notificationsData } = await supabase
+          .from("notifications")
+          .select("loqatr_message_id, location")
+          .in("loqatr_message_id", loqatrIds)
+          .not("location", "is", null);
+
+        // Map location to messages
+        const locationMap = new Map<number, string>();
+        (notificationsData || []).forEach((n) => {
+          if (n.loqatr_message_id && n.location) {
+            locationMap.set(n.loqatr_message_id, n.location);
+          }
+        });
+
+        const messagesWithLocation: MessageWithLocation[] = (loqatrsData || []).map((msg) => ({
+          ...msg,
+          location: locationMap.get(msg.id) || null,
+        }));
+
+        setMessages(messagesWithLocation);
       } catch (err) {
         console.error("Failed to fetch messages:", err);
         setError("Failed to load messages. Please try again.");
@@ -148,6 +182,14 @@ export default function MessagesPage() {
                   {msg.message && (
                     <div className="bg-muted/50 rounded-lg p-4">
                       <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                    </div>
+                  )}
+
+                  {/* Location info */}
+                  {msg.location && (
+                    <div className="flex items-start gap-2 text-sm text-muted-foreground bg-muted/30 rounded-lg p-3">
+                      <MapPin className="w-4 h-4 flex-shrink-0 mt-0.5 text-accent" />
+                      <span className="break-words">{msg.location}</span>
                     </div>
                   )}
 
