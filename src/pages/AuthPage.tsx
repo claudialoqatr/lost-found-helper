@@ -10,10 +10,14 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { PhoneInput } from "@/components/PhoneInput";
+import { Turnstile } from "@/components/Turnstile";
 import { toast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import logoDark from "@/assets/logo-dark.svg";
 import logoLight from "@/assets/logo-light.svg";
+
+// Cloudflare Turnstile test key - replace with production key
+const TURNSTILE_SITE_KEY = "1x00000000000000000000AA";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email"),
@@ -42,6 +46,7 @@ type AuthMode = "login" | "signup" | "forgot-password";
 export default function AuthPage() {
   const [mode, setMode] = useState<AuthMode>("login");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const { user, signIn, signUp, resetPassword } = useAuth();
   const { resolvedTheme } = useTheme();
   const navigate = useNavigate();
@@ -108,6 +113,15 @@ export default function AuthPage() {
   };
 
   const handleSignup = async (data: SignupFormData) => {
+    if (!turnstileToken) {
+      toast({
+        variant: "destructive",
+        title: "Verification required",
+        description: "Please complete the captcha verification.",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     const { error } = await signUp(data.email, data.password, data.name, data.phone);
     setIsSubmitting(false);
@@ -122,6 +136,8 @@ export default function AuthPage() {
         title: "Signup failed",
         description: message,
       });
+      // Reset captcha on error
+      setTurnstileToken(null);
     } else {
       toast({
         title: "Account created!",
@@ -343,10 +359,20 @@ export default function AuthPage() {
                     </FormItem>
                   )}
                 />
+                {/* Turnstile Captcha */}
+                <div className="flex justify-center py-2">
+                  <Turnstile
+                    siteKey={TURNSTILE_SITE_KEY}
+                    onSuccess={setTurnstileToken}
+                    onError={() => setTurnstileToken(null)}
+                    onExpire={() => setTurnstileToken(null)}
+                  />
+                </div>
+
                 <Button 
                   type="submit" 
                   className="w-full" 
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || !turnstileToken}
                 >
                   {isSubmitting ? (
                     <>
@@ -413,6 +439,7 @@ export default function AuthPage() {
                   setMode(mode === "login" ? "signup" : "login");
                   loginForm.reset();
                   signupForm.reset();
+                  setTurnstileToken(null);
                 }}
                 className="text-sm text-muted-foreground hover:text-accent transition-colors"
               >
