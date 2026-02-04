@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -66,20 +66,6 @@ export default function AuthPage() {
     defaultValues: { email: "" },
   });
 
-  // Dev bypass: Ctrl+Shift+D to skip auth
-  const handleDevBypass = useCallback((e: KeyboardEvent) => {
-    if (e.ctrlKey && e.shiftKey && e.key === "D") {
-      e.preventDefault();
-      localStorage.setItem("dev_bypass", "true");
-      toast({ title: "🔧 Dev mode enabled", description: "Redirecting..." });
-      navigate("/");
-    }
-  }, [navigate]);
-
-  useEffect(() => {
-    window.addEventListener("keydown", handleDevBypass);
-    return () => window.removeEventListener("keydown", handleDevBypass);
-  }, [handleDevBypass]);
 
   useEffect(() => {
     if (user) {

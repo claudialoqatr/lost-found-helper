@@ -11,8 +11,7 @@ const Index = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const { resolvedTheme } = useTheme();
-  const devBypass = localStorage.getItem("dev_bypass") === "true";
-  const isAuthenticated = user || devBypass;
+  const isAuthenticated = !!user;
 
   // Redirect authenticated users to My Tags
   useEffect(() => {

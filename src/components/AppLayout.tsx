@@ -35,17 +35,14 @@ export function AppLayout({ children }: AppLayoutProps) {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
-  const devBypass = localStorage.getItem("dev_bypass") === "true";
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
 
   const handleSignOut = () => {
-    localStorage.removeItem("dev_bypass");
     signOut();
     navigate("/");
   };
 
   const getUserDisplayName = () => {
-    if (devBypass) return "Dev";
     if (user?.user_metadata?.name) return user.user_metadata.name.split(" ")[0];
     if (user?.email) return user.email.split("@")[0];
     return "there";
