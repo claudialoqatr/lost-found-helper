@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { notifyTagScanned, notifyMessageReceived } from "@/lib/notifications";
+import { notifyTagScanned } from "@/lib/notifications";
 import { ContactRevealGate } from "@/components/finder/ContactRevealGate";
 import { PublicContactOptions } from "@/components/finder/PublicContactOptions";
 import logoDark from "@/assets/logo-dark.svg";
@@ -215,30 +215,24 @@ export default function FinderPage() {
 
     setSending(true);
     try {
-      const { data: loqatrData, error } = await supabase
-        .from("loqatrs")
-        .insert({
+      // Use edge function to submit finder message (bypasses RLS issues for anon users)
+      const { data, error } = await supabase.functions.invoke("submit-finder-message", {
+        body: {
           item_id: item.id,
           name: finderName.trim(),
           email: finderEmail.trim() || null,
           phone: finderPhone.trim() || null,
           message: message.trim() || null,
-        })
-        .select()
-        .single();
+          qrcode_id: qrCode.id,
+          owner_id: qrCode.assigned_to,
+          location_address: location.address,
+        },
+      });
 
       if (error) throw error;
 
-      // Notify owner about the message
-      if (qrCode.assigned_to && loqatrData) {
-        await notifyMessageReceived(
-          qrCode.assigned_to,
-          item.name,
-          finderName.trim(),
-          qrCode.id,
-          loqatrData.id,
-          location.address
-        );
+      if (!data?.success) {
+        throw new Error(data?.error || "Failed to send message");
       }
 
       setMessageSent(true);

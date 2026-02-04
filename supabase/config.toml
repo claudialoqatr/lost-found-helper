@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.reveal-contact]
 verify_jwt = false
+
+[functions.submit-finder-message]
+verify_jwt = false
