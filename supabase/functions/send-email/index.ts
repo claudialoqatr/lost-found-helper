@@ -57,7 +57,13 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Get the raw payload for signature verification
     const payload = await req.text();
-    const headers = Object.fromEntries(req.headers);
+    
+    // Normalize headers to lowercase for standardwebhooks compatibility
+    const rawHeaders = Object.fromEntries(req.headers);
+    const headers: Record<string, string> = {};
+    for (const [key, value] of Object.entries(rawHeaders)) {
+      headers[key.toLowerCase()] = value;
+    }
 
     // Verify webhook signature
     // Supabase webhook secrets are in format: v1,whsec_<base64secret>
@@ -69,6 +75,7 @@ const handler = async (req: Request): Promise<Response> => {
       "webhook-timestamp": headers["webhook-timestamp"],
       "webhook-signature": headers["webhook-signature"] ? "present" : "missing",
     });
+    console.log("Secret format check - starts with v1,whsec_:", SEND_EMAIL_HOOK_SECRET.startsWith("v1,whsec_"));
 
     const wh = new Webhook(webhookSecret);
     let authPayload: AuthEmailPayload;
