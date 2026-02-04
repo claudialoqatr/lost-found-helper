@@ -1,13 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MessageSquare, User, Mail, Phone, Clock, Package, MapPin } from "lucide-react";
+import { MessageSquare, User, Mail, Phone, Clock, Package, MapPin, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+
+const PAGE_SIZE = 10;
 
 interface MessageWithLocation {
   id: number;
@@ -26,7 +29,10 @@ export default function MessagesPage() {
   const navigate = useNavigate();
   const [messages, setMessages] = useState<MessageWithLocation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalCount, setTotalCount] = useState<number | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -34,63 +40,88 @@ export default function MessagesPage() {
     }
   }, [user, authLoading, navigate]);
 
-  useEffect(() => {
-    async function fetchMessages() {
-      try {
-        // Fetch messages
-        const { data: loqatrsData, error: fetchError } = await supabase
-          .from("loqatrs")
-          .select(`
+  const fetchMessages = useCallback(async (offset: number = 0, append: boolean = false) => {
+    try {
+      if (append) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
+
+      // Fetch paginated messages
+      const { data: loqatrsData, error: fetchError, count } = await supabase
+        .from("loqatrs")
+        .select(`
+          id,
+          name,
+          email,
+          phone,
+          message,
+          created_at,
+          item_id,
+          item:items (
             id,
-            name,
-            email,
-            phone,
-            message,
-            created_at,
-            item_id,
-            item:items (
-              id,
-              name
-            )
-          `)
-          .order("created_at", { ascending: false });
+            name
+          )
+        `, { count: "exact" })
+        .order("created_at", { ascending: false })
+        .range(offset, offset + PAGE_SIZE - 1);
 
-        if (fetchError) throw fetchError;
+      if (fetchError) throw fetchError;
 
-        // Fetch locations from notifications (linked via loqatr_message_id)
-        const loqatrIds = (loqatrsData || []).map((l) => l.id);
-        const { data: notificationsData } = await supabase
-          .from("notifications")
-          .select("loqatr_message_id, location")
-          .in("loqatr_message_id", loqatrIds)
-          .not("location", "is", null);
+      // Store total count on first fetch
+      if (!append && count !== null) {
+        setTotalCount(count);
+      }
 
-        // Map location to messages
-        const locationMap = new Map<number, string>();
-        (notificationsData || []).forEach((n) => {
-          if (n.loqatr_message_id && n.location) {
-            locationMap.set(n.loqatr_message_id, n.location);
-          }
-        });
+      // Check if there are more messages
+      const fetchedCount = loqatrsData?.length || 0;
+      setHasMore(fetchedCount === PAGE_SIZE);
 
-        const messagesWithLocation: MessageWithLocation[] = (loqatrsData || []).map((msg) => ({
-          ...msg,
-          location: locationMap.get(msg.id) || null,
-        }));
+      // Fetch locations from notifications (linked via loqatr_message_id)
+      const loqatrIds = (loqatrsData || []).map((l) => l.id);
+      const { data: notificationsData } = await supabase
+        .from("notifications")
+        .select("loqatr_message_id, location")
+        .in("loqatr_message_id", loqatrIds)
+        .not("location", "is", null);
 
+      // Map location to messages
+      const locationMap = new Map<number, string>();
+      (notificationsData || []).forEach((n) => {
+        if (n.loqatr_message_id && n.location) {
+          locationMap.set(n.loqatr_message_id, n.location);
+        }
+      });
+
+      const messagesWithLocation: MessageWithLocation[] = (loqatrsData || []).map((msg) => ({
+        ...msg,
+        location: locationMap.get(msg.id) || null,
+      }));
+
+      if (append) {
+        setMessages((prev) => [...prev, ...messagesWithLocation]);
+      } else {
         setMessages(messagesWithLocation);
-      } catch (err) {
-        console.error("Failed to fetch messages:", err);
-        setError("Failed to load messages. Please try again.");
-      } finally {
+      }
+    } catch (err) {
+      console.error("Failed to fetch messages:", err);
+      setError("Failed to load messages. Please try again.");
+    } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
-  }
+  }, []);
 
+  useEffect(() => {
     if (!authLoading && user) {
-      fetchMessages();
+      fetchMessages(0, false);
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, fetchMessages]);
+
+  const handleLoadMore = () => {
+    fetchMessages(messages.length, true);
+  };
 
   if (authLoading || loading) {
     return (
@@ -118,7 +149,7 @@ export default function MessagesPage() {
           </div>
           <Badge variant="outline" className="w-fit">
             <MessageSquare className="w-3 h-3 mr-1" />
-            {messages.length} {messages.length === 1 ? "message" : "messages"}
+            {totalCount !== null ? totalCount : messages.length} {(totalCount ?? messages.length) === 1 ? "message" : "messages"}
           </Badge>
         </div>
 
@@ -217,6 +248,26 @@ export default function MessagesPage() {
                 </CardContent>
               </Card>
             ))}
+
+            {/* Load More Button */}
+            {hasMore && (
+              <div className="flex justify-center pt-4">
+                <Button
+                  variant="outline"
+                  onClick={handleLoadMore}
+                  disabled={loadingMore}
+                >
+                  {loadingMore ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    "Load More"
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>
