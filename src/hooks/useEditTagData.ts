@@ -108,8 +108,8 @@ export function useEditTagData({
   useEffect(() => {
     if (qrError) {
       toast({
-        title: "Tag not found",
-        description: "This QR code doesn't exist in our system.",
+        title: "Tag Not Found",
+        description: "We couldn't locate this tag. It may have been removed or the link is incorrect.",
         variant: "destructive",
       });
       navigate("/my-tags");
@@ -123,8 +123,8 @@ export function useEditTagData({
     // Verify ownership
     if (qrCode.assigned_to !== userProfile?.id) {
       toast({
-        title: "Access denied",
-        description: "You don't own this tag.",
+        title: "Access Denied",
+        description: "This tag belongs to another account. You can only edit tags you own.",
         variant: "destructive",
       });
       navigate("/my-tags");
@@ -263,8 +263,8 @@ export function useEditTagData({
     } catch (error) {
       console.error("Error saving:", error);
       toast({
-        title: "Error",
-        description: "Failed to save. Please try again.",
+        title: "Changes Not Saved",
+        description: "We couldn't save your updates. Please check your connection and try again.",
         variant: "destructive",
       });
     } finally {
@@ -321,8 +321,8 @@ export function useEditTagData({
     } catch (error) {
       console.error("Error unassigning:", error);
       toast({
-        title: "Error",
-        description: "Failed to unassign tag. Please try again.",
+        title: "Couldn't Unassign Tag",
+        description: "Something went wrong while removing this tag. Please try again or refresh the page.",
         variant: "destructive",
       });
     } finally {
