@@ -14,7 +14,6 @@ import {
   DescriptionField,
 } from "@/components/tag";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/hooks/useAuth";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useEditTagData } from "@/hooks/useEditTagData";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
@@ -28,9 +27,7 @@ import {
 
 export default function EditTagPage() {
   const { code } = useParams<{ code: string }>();
-  const { user, loading: authLoading } = useAuth();
   const { userProfile } = useUserProfile();
-  const isAuthenticated = !!user;
 
   const {
     loading,
@@ -57,17 +54,13 @@ export default function EditTagPage() {
     unassigning,
     showUnassignDialog,
     setShowUnassignDialog,
-  } = useEditTagData({
-    code,
-    isAuthenticated,
-    authLoading,
-  });
+  } = useEditTagData({ code });
 
   const { showDialog, confirmNavigation, cancelNavigation, safeNavigate } = useUnsavedChanges({
     hasChanges,
   });
 
-  if (authLoading || loading) {
+  if (loading) {
     return <PageLoadingState />;
   }
 

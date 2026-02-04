@@ -4,14 +4,13 @@ import { useToast } from "@/hooks/use-toast";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useQRCode } from "@/hooks/useQRCode";
 import { useItemDetailsManager } from "@/hooks/useItemDetailsManager";
+import { useAuthRedirect } from "@/hooks/useAuthRedirect";
 import { supabase } from "@/integrations/supabase/client";
 import { saveItemDetails } from "@/lib/itemDetailsService";
 import type { QRCodeData, ItemDetail } from "@/types";
 
 interface UseClaimTagDataParams {
   code: string | undefined;
-  isAuthenticated: boolean;
-  authLoading: boolean;
 }
 
 interface UseClaimTagDataReturn {
@@ -42,12 +41,15 @@ interface UseClaimTagDataReturn {
  */
 export function useClaimTagData({
   code,
-  isAuthenticated,
-  authLoading,
 }: UseClaimTagDataParams): UseClaimTagDataReturn {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { userProfile, loading: profileLoading } = useUserProfile();
+
+  // Use shared auth redirect hook
+  const { loading: authLoading } = useAuthRedirect({
+    returnPath: `/tag/${code}`,
+  });
 
   // Use shared QR code fetching hook (don't fetch details for unclaimed tags)
   const {
@@ -72,14 +74,6 @@ export function useClaimTagData({
     updateDetail,
     handleItemOwnerChange,
   } = useItemDetailsManager();
-
-  // Redirect unauthenticated users
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      sessionStorage.setItem("redirect_after_auth", `/tag/${code}`);
-      navigate("/auth");
-    }
-  }, [authLoading, isAuthenticated, code, navigate]);
 
   // Handle QR fetch errors
   useEffect(() => {

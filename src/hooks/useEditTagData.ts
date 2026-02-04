@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useQRCode } from "@/hooks/useQRCode";
 import { useItemDetailsManager } from "@/hooks/useItemDetailsManager";
+import { useAuthRedirect } from "@/hooks/useAuthRedirect";
 import { supabase } from "@/integrations/supabase/client";
 import { updateItemDetails } from "@/lib/itemDetailsService";
 import { notifyTagUnassigned } from "@/lib/notifications";
@@ -20,8 +21,6 @@ interface InitialFormValues {
 
 interface UseEditTagDataParams {
   code: string | undefined;
-  isAuthenticated: boolean;
-  authLoading: boolean;
 }
 
 interface UseEditTagDataReturn {
@@ -59,12 +58,15 @@ interface UseEditTagDataReturn {
  */
 export function useEditTagData({
   code,
-  isAuthenticated,
-  authLoading,
 }: UseEditTagDataParams): UseEditTagDataReturn {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { userProfile, loading: profileLoading } = useUserProfile();
+
+  // Use shared auth redirect hook
+  const { loading: authLoading } = useAuthRedirect({
+    returnPath: `/my-tags/${code}`,
+  });
 
   // Use shared QR code fetching hook
   const {
@@ -101,14 +103,6 @@ export function useEditTagData({
     updateDetail,
     handleItemOwnerChange,
   } = useItemDetailsManager();
-
-  // Redirect unauthenticated users
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      sessionStorage.setItem("redirect_after_auth", `/my-tags/${code}`);
-      navigate("/auth");
-    }
-  }, [authLoading, isAuthenticated, code, navigate]);
 
   // Handle QR fetch errors
   useEffect(() => {
