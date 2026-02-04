@@ -9,7 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useItemDetailsManager } from "@/hooks/useItemDetailsManager";
 import { supabase } from "@/integrations/supabase/client";
-import { PageLoadingState, PageHeader, BackButton, GradientButton, PoweredByFooter } from "@/components/shared";
+import { PageLoadingState, PageHeader, BackButton, GradientButton } from "@/components/shared";
 import type { QRCodeData } from "@/types";
 
 export default function ClaimTagPage() {
@@ -275,8 +275,6 @@ export default function ClaimTagPage() {
                   Claim This Tag
                 </GradientButton>
               </div>
-
-              <PoweredByFooter />
             </div>
           </div>
         </div>
