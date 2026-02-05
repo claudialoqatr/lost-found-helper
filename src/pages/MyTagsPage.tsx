@@ -158,23 +158,23 @@ export default function MyTagsPage() {
 
           {/* Search and Sort Controls */}
           {tags.length > 0 && (
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <div className="flex flex-row gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search by item name..."
+                  placeholder="Search..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
+                  className="pl-8 h-9 text-sm"
                 />
               </div>
               <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
-                <SelectTrigger className="w-full sm:w-[180px]">
-                  <SelectValue placeholder="Sort by" />
+                <SelectTrigger className="w-[120px] sm:w-[150px] h-9 text-sm">
+                  <SelectValue placeholder="Sort" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="last_added">Last Added</SelectItem>
-                  <SelectItem value="alphabetical">Alphabetical</SelectItem>
+                  <SelectItem value="alphabetical">A-Z</SelectItem>
                   <SelectItem value="last_scanned">Last Scanned</SelectItem>
                 </SelectContent>
               </Select>
