@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 
 interface UseAuthRedirectOptions {
   /** The route to redirect to if not authenticated */
@@ -35,11 +36,13 @@ export function useAuthRedirect(options: UseAuthRedirectOptions = {}): UseAuthRe
   } = options;
 
   const { user, loading } = useAuth();
+  const { isSuperAdmin, loading: adminLoading } = useSuperAdmin();
   const navigate = useNavigate();
   const isAuthenticated = !!user;
+  const isLoading = loading || (isAuthenticated && adminLoading);
 
   useEffect(() => {
-    if (loading) return;
+    if (isLoading) return;
 
     if (redirectIfAuthenticated && isAuthenticated) {
       // For auth pages - redirect authenticated users away
@@ -48,7 +51,9 @@ export function useAuthRedirect(options: UseAuthRedirectOptions = {}): UseAuthRe
         sessionStorage.removeItem("redirect_after_auth");
         navigate(storedRedirect, { replace: true });
       } else {
-        navigate(authenticatedRedirect, { replace: true });
+        // Super admins go to admin dashboard, regular users to my-tags
+        const defaultRedirect = isSuperAdmin ? "/admin/batches" : authenticatedRedirect;
+        navigate(defaultRedirect, { replace: true });
       }
     } else if (!redirectIfAuthenticated && !isAuthenticated) {
       // For protected pages - redirect unauthenticated users to auth
@@ -57,7 +62,7 @@ export function useAuthRedirect(options: UseAuthRedirectOptions = {}): UseAuthRe
       }
       navigate(redirectTo, { replace: true });
     }
-  }, [loading, isAuthenticated, redirectIfAuthenticated, navigate, returnPath, redirectTo, authenticatedRedirect]);
+  }, [isLoading, isAuthenticated, isSuperAdmin, redirectIfAuthenticated, navigate, returnPath, redirectTo, authenticatedRedirect]);
 
-  return { user, loading, isAuthenticated };
+  return { user, loading: isLoading, isAuthenticated };
 }
