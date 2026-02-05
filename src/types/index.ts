@@ -29,7 +29,7 @@ export interface QRCodeData {
   updated_at?: string | null;
 }
 
-export interface TagWithItem extends Omit<QRCodeData, 'batch_id'> {
+export interface TagWithItem extends Omit<QRCodeData, "batch_id"> {
   last_scanned_at: string | null;
   item: ItemInfo | null;
 }
@@ -99,7 +99,7 @@ export interface MessageWithItem {
 /**
  * Field types available in the item details dropdown.
  * Note: "Item owner name" is handled separately via a dedicated input field.
- */
+
 export const ITEM_DETAIL_FIELD_TYPES = [
   "Emergency contact", 
   "Return address",
@@ -110,7 +110,45 @@ export const ITEM_DETAIL_FIELD_TYPES = [
 ] as const;
 
 export type ItemDetailFieldType = typeof ITEM_DETAIL_FIELD_TYPES[number];
+ */
 
+// ============ Item Types ============
+
+export interface ItemInfo {
+  id: number;
+  name: string;
+  description: string | null;
+  icon_name: string | null;
+}
+
+/** * This is used for the UI State.
+ * We use a string 'id' (UUID) for React keys, but 'field_id' for the Database.
+ */
+export interface ItemDetail {
+  id: string; // Local UI unique ID (UUID)
+  field_id: number; // Database ID from item_detail_fields
+  value: string;
+  field_type?: string; // Human readable name from DB join
+}
+
+export interface ItemDetailField {
+  id: number;
+  type: string;
+}
+
+export interface ItemDetailFromDB {
+  id: number;
+  item_id: number | null;
+  field_id: number | null;
+  value: string;
+  created_at?: string | null;
+  item_detail_fields?: {
+    id: number;
+    type: string;
+  } | null;
+}
+
+// REMOVE: ITEM_DETAIL_FIELD_TYPES constant and ItemDetailFieldType alias
 // ============ QR Code Batch Types ============
 
 export interface QRCodeBatch {
