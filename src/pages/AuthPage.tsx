@@ -17,9 +17,7 @@ import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import logoDark from "@/assets/logo-dark.svg";
 import logoLight from "@/assets/logo-light.svg";
-
-// Cloudflare Turnstile - use production key from env, fallback to test key for local dev
-const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || "0x4AAAAAABDpqobG9QdvKn-D";
+import { TURNSTILE_SITE_KEY } from "@/lib/config";
 
 const loginSchema = z.object({
   email: z.string().max(254, "Email is too long").email("Please enter a valid email"),
