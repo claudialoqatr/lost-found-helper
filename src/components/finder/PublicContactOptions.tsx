@@ -29,9 +29,9 @@ export function PublicContactOptions({
   const getWhatsAppLink = () => {
     if (!contact.owner_phone) return null;
     const cleanPhone = contact.owner_phone.replace(/\D/g, "");
-    const locationText = locationAddress ? `\n\nFound at: ${locationAddress}` : "";
+    const locationText = locationAddress ? `\n\n📍 Location: ${locationAddress}` : "";
     const message = encodeURIComponent(
-      `Hi ${displayName}! I found your ${itemName} tagged with Loqatr.${locationText}`
+      `Hi ${displayName} 👋🏼\n\nI found your ${itemName} using your *LOQATR* tag! 👀\n\nHow can I help? 🥳${locationText}\n\n_Get yours! www.loqatr.com_`
     );
     return `https://wa.me/${cleanPhone}?text=${message}`;
   };
