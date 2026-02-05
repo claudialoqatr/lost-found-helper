@@ -44,7 +44,8 @@ export function BatchesTable({ batches, onMarkPrinted }: BatchesTableProps) {
         <TableHeader>
           <TableRow>
             <TableHead className="w-24">Batch ID</TableHead>
-            <TableHead className="w-24">QR Count</TableHead>
+            <TableHead className="w-24">Total QRs</TableHead>
+            <TableHead className="w-24">Assigned</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Notes</TableHead>
             <TableHead>Created</TableHead>
@@ -54,7 +55,7 @@ export function BatchesTable({ batches, onMarkPrinted }: BatchesTableProps) {
         <TableBody>
           {batches.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+              <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                 No batches yet. Create your first batch to get started.
               </TableCell>
             </TableRow>
@@ -63,6 +64,7 @@ export function BatchesTable({ batches, onMarkPrinted }: BatchesTableProps) {
               <TableRow key={batch.id}>
                 <TableCell className="font-mono font-medium">#{batch.id}</TableCell>
                 <TableCell>{batch.qrcode_count || 0}</TableCell>
+                <TableCell>{batch.assigned_count || 0}</TableCell>
                 <TableCell>{getStatusBadge(batch)}</TableCell>
                 <TableCell className="max-w-xs truncate">
                   {batch.notes || <span className="text-muted-foreground">—</span>}

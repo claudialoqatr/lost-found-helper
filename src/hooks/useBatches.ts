@@ -36,21 +36,26 @@ export function useBatches() {
       // Fetch all QR codes for these batches in a single query
       const { data: qrcodesData } = await supabase
         .from("qrcodes")
-        .select("batch_id")
+        .select("batch_id, assigned_to")
         .in("batch_id", batchIds);
 
-      // Build a count map: batch_id -> count
-      const countMap = new Map<number, number>();
+      // Build count maps: batch_id -> total count and assigned count
+      const totalCountMap = new Map<number, number>();
+      const assignedCountMap = new Map<number, number>();
       (qrcodesData || []).forEach((qr) => {
         if (qr.batch_id) {
-          countMap.set(qr.batch_id, (countMap.get(qr.batch_id) || 0) + 1);
+          totalCountMap.set(qr.batch_id, (totalCountMap.get(qr.batch_id) || 0) + 1);
+          if (qr.assigned_to !== null) {
+            assignedCountMap.set(qr.batch_id, (assignedCountMap.get(qr.batch_id) || 0) + 1);
+          }
         }
       });
 
       // Merge counts into batches
       const batchesWithCounts: QRCodeBatch[] = batchData.map((batch) => ({
         ...batch,
-        qrcode_count: countMap.get(batch.id) || 0,
+        qrcode_count: totalCountMap.get(batch.id) || 0,
+        assigned_count: assignedCountMap.get(batch.id) || 0,
       }));
 
       return batchesWithCounts;
