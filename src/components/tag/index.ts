@@ -1,4 +1,5 @@
 export { ItemForm, ItemNameField, NotMyItemToggle, PrivacyToggle } from "./ItemForm";
+export { ItemOwnerNameField } from "./ItemOwnerNameField";
 export { ItemDetailsEditor, type ItemDetail } from "./ItemDetailsEditor";
 export { ContactDetailsCard } from "./ContactDetailsCard";
 export { LoqatrIdCard } from "./LoqatrIdCard";

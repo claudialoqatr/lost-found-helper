@@ -17,6 +17,7 @@ interface InitialFormValues {
   iconName: string;
   itemDetails: string;
   isItemOwner: boolean;
+  itemOwnerName: string;
 }
 
 interface UseEditTagDataParams {
@@ -37,11 +38,12 @@ interface UseEditTagDataReturn {
   setIconName: (iconName: string) => void;
   itemDetails: ItemDetail[];
   isItemOwner: boolean;
+  itemOwnerName: string;
+  setItemOwnerName: (name: string) => void;
   addDetail: () => void;
   removeDetail: (id: string) => void;
   updateDetail: (id: string, field: "fieldType" | "value", value: string) => void;
   handleItemOwnerChange: (isOwner: boolean) => void;
-  itemOwnerName: string | undefined;
   hasChanges: () => boolean;
   resetInitialValues: () => void;
   handleSubmit: () => Promise<void>;
@@ -92,16 +94,19 @@ export function useEditTagData({
   // Track initial values for change detection
   const initialValuesRef = useRef<InitialFormValues | null>(null);
 
-  // Use shared item details manager
+  // Use shared item details manager with separate owner name
   const {
     itemDetails,
     setItemDetails,
     isItemOwner,
     setIsItemOwner,
+    itemOwnerName,
+    setItemOwnerName,
     addDetail,
     removeDetail,
     updateDetail,
     handleItemOwnerChange,
+    getAllDetailsForSave,
   } = useItemDetailsManager();
 
   // Handle QR fetch errors
@@ -140,29 +145,29 @@ export function useEditTagData({
       setIconName(item.icon_name || "Package");
     }
 
-    if (fetchedDetails.length > 0) {
-      setItemDetails(fetchedDetails);
-      const hasItemOwnerName = fetchedDetails.some((d) => d.fieldType === "Item owner name");
-      setIsItemOwner(!hasItemOwnerName);
-
-      initialValuesRef.current = {
-        itemName: item?.name || "",
-        isPublic: qrCode.is_public,
-        description: item?.description || "",
-        iconName: item?.icon_name || "Package",
-        itemDetails: JSON.stringify(fetchedDetails),
-        isItemOwner: !hasItemOwnerName,
-      };
+    // Extract owner name from details and filter it out for the details list
+    const ownerNameDetail = fetchedDetails.find((d) => d.fieldType === "Item owner name");
+    const otherDetails = fetchedDetails.filter((d) => d.fieldType !== "Item owner name");
+    
+    if (ownerNameDetail) {
+      setItemOwnerName(ownerNameDetail.value);
+      setIsItemOwner(false);
     } else {
-      initialValuesRef.current = {
-        itemName: item?.name || "",
-        isPublic: qrCode.is_public,
-        description: item?.description || "",
-        iconName: item?.icon_name || "Package",
-        itemDetails: JSON.stringify([]),
-        isItemOwner: true,
-      };
+      setIsItemOwner(true);
     }
+    
+    setItemDetails(otherDetails);
+
+    // Store initial values for change detection
+    initialValuesRef.current = {
+      itemName: item?.name || "",
+      isPublic: qrCode.is_public,
+      description: item?.description || "",
+      iconName: item?.icon_name || "Package",
+      itemDetails: JSON.stringify(otherDetails),
+      isItemOwner: !ownerNameDetail,
+      itemOwnerName: ownerNameDetail?.value || "",
+    };
 
     setFormInitialized(true);
   }, [
@@ -176,6 +181,7 @@ export function useEditTagData({
     toast,
     setItemDetails,
     setIsItemOwner,
+    setItemOwnerName,
   ]);
 
   // Change detection
@@ -188,9 +194,10 @@ export function useEditTagData({
       description !== initial.description ||
       iconName !== initial.iconName ||
       JSON.stringify(itemDetails) !== initial.itemDetails ||
-      isItemOwner !== initial.isItemOwner
+      isItemOwner !== initial.isItemOwner ||
+      itemOwnerName !== initial.itemOwnerName
     );
-  }, [itemName, isPublic, description, iconName, itemDetails, isItemOwner]);
+  }, [itemName, isPublic, description, iconName, itemDetails, isItemOwner, itemOwnerName]);
 
   const resetInitialValues = useCallback(() => {
     initialValuesRef.current = {
@@ -200,10 +207,11 @@ export function useEditTagData({
       iconName,
       itemDetails: JSON.stringify(itemDetails),
       isItemOwner,
+      itemOwnerName: itemOwnerName.trim(),
     };
-  }, [itemName, isPublic, description, iconName, itemDetails, isItemOwner]);
+  }, [itemName, isPublic, description, iconName, itemDetails, isItemOwner, itemOwnerName]);
 
-  // Submit handler - throws on failure so callers can handle it
+  // Submit handler
   const handleSubmit = useCallback(async () => {
     if (!itemName.trim()) {
       toast({
@@ -214,16 +222,13 @@ export function useEditTagData({
       throw new Error("Item name required");
     }
 
-    if (!isItemOwner) {
-      const ownerNameDetail = itemDetails.find((d) => d.fieldType === "Item owner name");
-      if (!ownerNameDetail?.value.trim()) {
-        toast({
-          title: "Item owner name required",
-          description: "Please enter the name of the item's owner.",
-          variant: "destructive",
-        });
-        throw new Error("Item owner name required");
-      }
+    if (!isItemOwner && !itemOwnerName.trim()) {
+      toast({
+        title: "Item owner name required",
+        description: "Please enter the name of the item's owner.",
+        variant: "destructive",
+      });
+      throw new Error("Item owner name required");
     }
 
     if (!qrCode || !userProfile || !item) {
@@ -244,7 +249,9 @@ export function useEditTagData({
 
       if (updateError) throw updateError;
 
-      await updateItemDetails(item.id, itemDetails);
+      // Get all details including owner name for saving
+      const detailsToSave = getAllDetailsForSave();
+      await updateItemDetails(item.id, detailsToSave);
 
       const { error: qrUpdateError } = await supabase
         .from("qrcodes")
@@ -269,14 +276,14 @@ export function useEditTagData({
         description: "We couldn't save your updates. Please check your connection and try again.",
         variant: "destructive",
       });
-      throw error; // Re-throw so callers know save failed
+      throw error;
     } finally {
       setSaving(false);
     }
   }, [
     itemName,
     isItemOwner,
-    itemDetails,
+    itemOwnerName,
     qrCode,
     userProfile,
     item,
@@ -285,6 +292,7 @@ export function useEditTagData({
     isPublic,
     toast,
     resetInitialValues,
+    getAllDetailsForSave,
   ]);
 
   // Unassign handler
@@ -334,10 +342,6 @@ export function useEditTagData({
     }
   }, [qrCode, userProfile, item, toast, navigate]);
 
-  const itemOwnerName = !isItemOwner
-    ? itemDetails.find((d) => d.fieldType === "Item owner name")?.value || undefined
-    : undefined;
-
   return {
     loading: qrLoading || profileLoading || authLoading,
     qrCode,
@@ -352,11 +356,12 @@ export function useEditTagData({
     setIconName,
     itemDetails,
     isItemOwner,
+    itemOwnerName,
+    setItemOwnerName,
     addDetail,
     removeDetail,
     updateDetail,
     handleItemOwnerChange,
-    itemOwnerName,
     hasChanges,
     resetInitialValues,
     handleSubmit,

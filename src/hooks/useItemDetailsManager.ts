@@ -3,6 +3,7 @@ import type { ItemDetail } from "@/types";
 
 interface UseItemDetailsManagerOptions {
   initialDetails?: ItemDetail[];
+  initialOwnerName?: string;
 }
 
 interface UseItemDetailsManagerReturn {
@@ -10,24 +11,26 @@ interface UseItemDetailsManagerReturn {
   setItemDetails: React.Dispatch<React.SetStateAction<ItemDetail[]>>;
   isItemOwner: boolean;
   setIsItemOwner: (isOwner: boolean) => void;
+  itemOwnerName: string;
+  setItemOwnerName: (name: string) => void;
   addDetail: () => void;
   removeDetail: (id: string) => void;
   updateDetail: (id: string, field: "fieldType" | "value", value: string) => void;
   handleItemOwnerChange: (isOwner: boolean) => void;
-  hasItemOwnerName: boolean;
+  /** Get all details including the owner name detail (for saving) */
+  getAllDetailsForSave: () => ItemDetail[];
 }
 
 /**
  * Hook to manage item details state and operations.
- * Extracted from ClaimTagPage and EditTagPage to reduce duplication.
+ * Item owner name is managed separately to prevent field type confusion.
  */
 export function useItemDetailsManager(
   options: UseItemDetailsManagerOptions = {}
 ): UseItemDetailsManagerReturn {
   const [itemDetails, setItemDetails] = useState<ItemDetail[]>(options.initialDetails || []);
   const [isItemOwner, setIsItemOwner] = useState(true);
-
-  const hasItemOwnerName = itemDetails.some((d) => d.fieldType === "Item owner name");
+  const [itemOwnerName, setItemOwnerName] = useState(options.initialOwnerName || "");
 
   const addDetail = useCallback(() => {
     setItemDetails((prev) => [
@@ -37,15 +40,8 @@ export function useItemDetailsManager(
   }, []);
 
   const removeDetail = useCallback((id: string) => {
-    setItemDetails((prev) => {
-      const detail = prev.find((d) => d.id === id);
-      // Prevent removing "Item owner name" if isItemOwner is false
-      if (detail?.fieldType === "Item owner name" && !isItemOwner) {
-        return prev;
-      }
-      return prev.filter((d) => d.id !== id);
-    });
-  }, [isItemOwner]);
+    setItemDetails((prev) => prev.filter((d) => d.id !== id));
+  }, []);
 
   const updateDetail = useCallback((id: string, field: "fieldType" | "value", value: string) => {
     setItemDetails((prev) =>
@@ -55,33 +51,42 @@ export function useItemDetailsManager(
 
   const handleItemOwnerChange = useCallback((isOwner: boolean) => {
     setIsItemOwner(isOwner);
-    if (!isOwner) {
-      // Add "Item owner name" detail if not already present
-      setItemDetails((prev) => {
-        const hasOwnerName = prev.some((d) => d.fieldType === "Item owner name");
-        if (!hasOwnerName) {
-          return [
-            { id: crypto.randomUUID(), fieldType: "Item owner name", value: "" },
-            ...prev,
-          ];
-        }
-        return prev;
-      });
-    } else {
-      // Remove "Item owner name" detail when toggled back on
-      setItemDetails((prev) => prev.filter((d) => d.fieldType !== "Item owner name"));
+    if (isOwner) {
+      // Clear owner name when switching back to "my item"
+      setItemOwnerName("");
     }
   }, []);
+
+  /**
+   * Combines regular item details with the owner name detail for saving.
+   * Filters out any existing "Item owner name" entries and adds the current one if applicable.
+   */
+  const getAllDetailsForSave = useCallback((): ItemDetail[] => {
+    // Filter out any existing "Item owner name" entries from details
+    const filteredDetails = itemDetails.filter((d) => d.fieldType !== "Item owner name");
+    
+    // If not the item owner and there's a name, add the owner name detail
+    if (!isItemOwner && itemOwnerName.trim()) {
+      return [
+        { id: crypto.randomUUID(), fieldType: "Item owner name", value: itemOwnerName.trim() },
+        ...filteredDetails,
+      ];
+    }
+    
+    return filteredDetails;
+  }, [itemDetails, isItemOwner, itemOwnerName]);
 
   return {
     itemDetails,
     setItemDetails,
     isItemOwner,
     setIsItemOwner,
+    itemOwnerName,
+    setItemOwnerName,
     addDetail,
     removeDetail,
     updateDetail,
     handleItemOwnerChange,
-    hasItemOwnerName,
+    getAllDetailsForSave,
   };
 }

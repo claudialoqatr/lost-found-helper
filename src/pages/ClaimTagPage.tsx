@@ -9,6 +9,7 @@ import {
   LoqatrIdCard,
   IconPicker,
   DescriptionField,
+  ItemOwnerNameField,
 } from "@/components/tag";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useClaimTagData } from "@/hooks/useClaimTagData";
@@ -31,11 +32,12 @@ export default function ClaimTagPage() {
     setIconName,
     itemDetails,
     isItemOwner,
+    itemOwnerName,
+    setItemOwnerName,
     addDetail,
     removeDetail,
     updateDetail,
     handleItemOwnerChange,
-    itemOwnerName,
     handleSubmit,
     saving,
   } = useClaimTagData({ code });
@@ -67,7 +69,11 @@ export default function ClaimTagPage() {
 
               {/* Compact contact details on mobile */}
               <div className="lg:hidden">
-                <ContactDetailsCard user={userProfile} compact alternateOwnerName={itemOwnerName} />
+                <ContactDetailsCard 
+                  user={userProfile} 
+                  compact 
+                  alternateOwnerName={!isItemOwner ? itemOwnerName : undefined} 
+                />
               </div>
 
               {/* Not my item toggle */}
@@ -75,6 +81,14 @@ export default function ClaimTagPage() {
                 isNotMyItem={!isItemOwner}
                 onNotMyItemChange={(notMyItem) => handleItemOwnerChange(!notMyItem)}
               />
+
+              {/* Item Owner Name - shown when toggle is on */}
+              {!isItemOwner && (
+                <ItemOwnerNameField
+                  value={itemOwnerName}
+                  onChange={setItemOwnerName}
+                />
+              )}
 
               {/* Item Details */}
               <ItemDetailsEditor
@@ -112,7 +126,10 @@ export default function ClaimTagPage() {
 
             {/* Right Column - Desktop only */}
             <div className="hidden lg:block space-y-6 mt-0">
-              <ContactDetailsCard user={userProfile} alternateOwnerName={itemOwnerName} />
+              <ContactDetailsCard 
+                user={userProfile} 
+                alternateOwnerName={!isItemOwner ? itemOwnerName : undefined} 
+              />
 
               {/* Submit Button - desktop */}
               <GradientButton

@@ -96,8 +96,11 @@ export interface MessageWithItem {
 
 // ============ Field Types Constant ============
 
+/**
+ * Field types available in the item details dropdown.
+ * Note: "Item owner name" is handled separately via a dedicated input field.
+ */
 export const ITEM_DETAIL_FIELD_TYPES = [
-  "Item owner name",
   "Emergency contact", 
   "Return address",
   "Reward offer",

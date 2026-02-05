@@ -26,11 +26,12 @@ interface UseClaimTagDataReturn {
   setIconName: (iconName: string) => void;
   itemDetails: ItemDetail[];
   isItemOwner: boolean;
+  itemOwnerName: string;
+  setItemOwnerName: (name: string) => void;
   addDetail: () => void;
   removeDetail: (id: string) => void;
   updateDetail: (id: string, field: "fieldType" | "value", value: string) => void;
   handleItemOwnerChange: (isOwner: boolean) => void;
-  itemOwnerName: string | undefined;
   handleSubmit: () => Promise<void>;
   saving: boolean;
 }
@@ -65,14 +66,17 @@ export function useClaimTagData({
   const [iconName, setIconName] = useState("Package");
   const [saving, setSaving] = useState(false);
 
-  // Use shared item details manager
+  // Use shared item details manager with separate owner name
   const {
     itemDetails,
     isItemOwner,
+    itemOwnerName,
+    setItemOwnerName,
     addDetail,
     removeDetail,
     updateDetail,
     handleItemOwnerChange,
+    getAllDetailsForSave,
   } = useItemDetailsManager();
 
   // Handle QR fetch errors
@@ -117,16 +121,13 @@ export function useClaimTagData({
       return;
     }
 
-    if (!isItemOwner) {
-      const ownerNameDetail = itemDetails.find((d) => d.fieldType === "Item owner name");
-      if (!ownerNameDetail?.value.trim()) {
-        toast({
-          title: "Item owner name required",
-          description: "Please enter the name of the item's owner.",
-          variant: "destructive",
-        });
-        return;
-      }
+    if (!isItemOwner && !itemOwnerName.trim()) {
+      toast({
+        title: "Item owner name required",
+        description: "Please enter the name of the item's owner.",
+        variant: "destructive",
+      });
+      return;
     }
 
     if (!qrCode || !userProfile) return;
@@ -147,7 +148,6 @@ export function useClaimTagData({
       if (itemError) throw itemError;
 
       // Attempt to claim the QR code with optimistic locking
-      // The RLS policy already ensures assigned_to IS NULL, but we also check the result
       const { data: updatedQR, error: qrUpdateError } = await supabase
         .from("qrcodes")
         .update({
@@ -158,13 +158,12 @@ export function useClaimTagData({
           updated_at: new Date().toISOString(),
         })
         .eq("id", qrCode.id)
-        .is("assigned_to", null) // Optimistic lock - only update if still unclaimed
+        .is("assigned_to", null)
         .select()
         .maybeSingle();
 
       // Check if claim succeeded
       if (qrUpdateError || !updatedQR) {
-        // Claim failed - someone else got it first. Clean up the orphaned item.
         await supabase.from("items").delete().eq("id", newItem.id);
         
         toast({
@@ -176,9 +175,10 @@ export function useClaimTagData({
         return;
       }
 
-      // Insert item details AFTER qrcode is linked
-      if (itemDetails.length > 0 && newItem) {
-        await saveItemDetails(newItem.id, itemDetails);
+      // Get all details including owner name for saving
+      const detailsToSave = getAllDetailsForSave();
+      if (detailsToSave.length > 0 && newItem) {
+        await saveItemDetails(newItem.id, detailsToSave);
       }
 
       toast({
@@ -200,7 +200,7 @@ export function useClaimTagData({
   }, [
     itemName,
     isItemOwner,
-    itemDetails,
+    itemOwnerName,
     qrCode,
     userProfile,
     description,
@@ -209,11 +209,8 @@ export function useClaimTagData({
     code,
     toast,
     navigate,
+    getAllDetailsForSave,
   ]);
-
-  const itemOwnerName = !isItemOwner
-    ? itemDetails.find((d) => d.fieldType === "Item owner name")?.value || undefined
-    : undefined;
 
   return {
     loading: qrLoading || profileLoading || authLoading,
@@ -228,11 +225,12 @@ export function useClaimTagData({
     setIconName,
     itemDetails,
     isItemOwner,
+    itemOwnerName,
+    setItemOwnerName,
     addDetail,
     removeDetail,
     updateDetail,
     handleItemOwnerChange,
-    itemOwnerName,
     handleSubmit,
     saving,
   };
