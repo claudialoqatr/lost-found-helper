@@ -14,6 +14,7 @@ import { Turnstile } from "@/components/Turnstile";
 import { PasswordStrengthIndicator, isPasswordStrong } from "@/components/PasswordStrengthIndicator";
 import { toast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { PasswordInput } from "@/components/PasswordInput";
 import { supabase } from "@/integrations/supabase/client";
 import logoDark from "@/assets/logo-dark.svg";
 import logoLight from "@/assets/logo-light.svg";
@@ -297,7 +298,7 @@ export default function AuthPage() {
                     <FormItem>
                       <FormLabel>Password</FormLabel>
                       <FormControl>
-                        <Input type="password" placeholder="••••••••" maxLength={128} {...field} />
+                        <PasswordInput placeholder="••••••••" maxLength={128} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -386,7 +387,7 @@ export default function AuthPage() {
                         Password <span className="text-destructive">*</span>
                       </FormLabel>
                       <FormControl>
-                        <Input type="password" placeholder="••••••••" maxLength={128} {...field} />
+                        <PasswordInput placeholder="••••••••" maxLength={128} {...field} />
                       </FormControl>
                       <PasswordStrengthIndicator password={field.value} />
                       <FormMessage />
@@ -402,7 +403,7 @@ export default function AuthPage() {
                         Confirm Password <span className="text-destructive">*</span>
                       </FormLabel>
                       <FormControl>
-                        <Input type="password" placeholder="••••••••" maxLength={128} {...field} />
+                        <PasswordInput placeholder="••••••••" maxLength={128} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -468,7 +469,7 @@ export default function AuthPage() {
                     <FormItem>
                       <FormLabel>New Password</FormLabel>
                       <FormControl>
-                        <Input type="password" placeholder="••••••••" maxLength={128} {...field} />
+                        <PasswordInput placeholder="••••••••" maxLength={128} {...field} />
                       </FormControl>
                       <PasswordStrengthIndicator password={field.value} />
                       <FormMessage />
@@ -482,7 +483,7 @@ export default function AuthPage() {
                     <FormItem>
                       <FormLabel>Confirm New Password</FormLabel>
                       <FormControl>
-                        <Input type="password" placeholder="••••••••" maxLength={128} {...field} />
+                        <PasswordInput placeholder="••••••••" maxLength={128} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
