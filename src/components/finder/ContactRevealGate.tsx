@@ -7,8 +7,8 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { RevealedContact, LocationData } from "@/types";
 
-// Cloudflare Turnstile test keys for development
-const TURNSTILE_SITE_KEY = "1x00000000000000000000AA";
+// Cloudflare Turnstile - use production key from env, fallback to test key for local dev
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || "1x00000000000000000000AA";
 
 interface ContactRevealGateProps {
   qrCodeId: number;

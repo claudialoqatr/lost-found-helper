@@ -18,8 +18,8 @@ import { supabase } from "@/integrations/supabase/client";
 import logoDark from "@/assets/logo-dark.svg";
 import logoLight from "@/assets/logo-light.svg";
 
-// Cloudflare Turnstile test key - replace with production key
-const TURNSTILE_SITE_KEY = "1x00000000000000000000AA";
+// Cloudflare Turnstile - use production key from env, fallback to test key for local dev
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || "1x00000000000000000000AA";
 
 const loginSchema = z.object({
   email: z.string().max(254, "Email is too long").email("Please enter a valid email"),
