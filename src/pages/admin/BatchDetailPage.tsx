@@ -22,29 +22,29 @@ export default function BatchDetailPage() {
   const { batchId } = useParams<{ batchId: string }>();
   const { batches, isLoading, fetchBatchQRCodes, markAsDownloaded, markAsPrinted } = useBatches();
   const { toast } = useToast();
-  const [loqatrIds, setLoqatrIds] = useState<string[]>([]);
+  const [qrCodes, setQrCodes] = useState<{ loqatr_id: string; isAssigned: boolean }[]>([]);
   const [loadingQRCodes, setLoadingQRCodes] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const filteredIds = useMemo(() => {
-    if (!searchQuery.trim()) return loqatrIds;
-    return loqatrIds.filter((id) =>
-      id.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredCodes = useMemo(() => {
+    if (!searchQuery.trim()) return qrCodes;
+    return qrCodes.filter((qr) =>
+      qr.loqatr_id.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [loqatrIds, searchQuery]);
+  }, [qrCodes, searchQuery]);
 
   // Reset to page 1 when search query changes
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery]);
 
-  const totalPages = Math.ceil(filteredIds.length / PAGE_SIZE);
-  const paginatedIds = useMemo(() => {
+  const totalPages = Math.ceil(filteredCodes.length / PAGE_SIZE);
+  const paginatedCodes = useMemo(() => {
     const start = (currentPage - 1) * PAGE_SIZE;
-    return filteredIds.slice(start, start + PAGE_SIZE);
-  }, [filteredIds, currentPage]);
+    return filteredCodes.slice(start, start + PAGE_SIZE);
+  }, [filteredCodes, currentPage]);
 
   const handleCopyUrl = async (id: string) => {
     const url = `${getBaseLoqatrIdURL()}${id}`;
@@ -60,7 +60,7 @@ export default function BatchDetailPage() {
     if (batchId) {
       setLoadingQRCodes(true);
       fetchBatchQRCodes(Number(batchId))
-        .then(setLoqatrIds)
+        .then(setQrCodes)
         .finally(() => setLoadingQRCodes(false));
     }
   }, [batchId, fetchBatchQRCodes]);
@@ -141,7 +141,7 @@ export default function BatchDetailPage() {
             <dl className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
                 <dt className="text-muted-foreground">QR Codes</dt>
-                <dd className="font-medium">{loqatrIds.length}</dd>
+                <dd className="font-medium">{qrCodes.length}</dd>
               </div>
               <div>
                 <dt className="text-muted-foreground">Status</dt>
@@ -171,7 +171,7 @@ export default function BatchDetailPage() {
         ) : (
           <QRCodeBuilder
             batch={batch}
-            loqatrIds={loqatrIds}
+            loqatrIds={qrCodes.map(qr => qr.loqatr_id)}
             onDownloaded={handleDownloaded}
             onPrinted={handlePrinted}
           />
@@ -192,26 +192,30 @@ export default function BatchDetailPage() {
             </div>
           </CardHeader>
           <CardContent>
-            {filteredIds.length === 0 ? (
+            {filteredCodes.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">
                 {searchQuery ? "No matching QR codes found" : "No QR codes in this batch"}
               </p>
             ) : (
               <>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                  {paginatedIds.map((id) => (
+                  {paginatedCodes.map((qr) => (
                     <button
-                      key={id}
-                      onClick={() => handleCopyUrl(id)}
-                      className="px-3 py-2 bg-muted hover:bg-muted/80 rounded text-xs font-mono text-center truncate transition-colors flex items-center justify-center gap-1 cursor-pointer"
-                      title={`Click to copy URL for ${id}`}
+                      key={qr.loqatr_id}
+                      onClick={() => handleCopyUrl(qr.loqatr_id)}
+                      className={`px-3 py-2 rounded text-xs font-mono text-center truncate transition-colors flex items-center justify-center gap-1 cursor-pointer ${
+                        qr.isAssigned 
+                          ? "bg-accent/20 hover:bg-accent/30 text-accent-foreground" 
+                          : "bg-muted hover:bg-muted/80"
+                      }`}
+                      title={`Click to copy URL for ${qr.loqatr_id}${qr.isAssigned ? " (Assigned)" : ""}`}
                     >
-                      {copiedId === id ? (
+                      {copiedId === qr.loqatr_id ? (
                         <Check className="h-3 w-3 text-primary shrink-0" />
                       ) : (
-                        <Copy className="h-3 w-3 text-muted-foreground shrink-0" />
+                        <Copy className={`h-3 w-3 shrink-0 ${qr.isAssigned ? "text-accent" : "text-muted-foreground"}`} />
                       )}
-                      <span className="truncate">{id}</span>
+                      <span className="truncate">{qr.loqatr_id}</span>
                     </button>
                   ))}
                 </div>
@@ -220,7 +224,7 @@ export default function BatchDetailPage() {
                 {totalPages > 1 && (
                   <div className="flex items-center justify-between pt-4 mt-4 border-t">
                     <p className="text-sm text-muted-foreground">
-                      Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredIds.length)} of {filteredIds.length}
+                      Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredCodes.length)} of {filteredCodes.length}
                     </p>
                     <div className="flex items-center gap-2">
                       <Button

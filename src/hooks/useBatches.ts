@@ -128,12 +128,15 @@ export function useBatches() {
   const fetchBatchQRCodes = useCallback(async (batchId: number) => {
     const { data, error } = await supabase
       .from("qrcodes")
-      .select("loqatr_id")
+      .select("loqatr_id, assigned_to")
       .eq("batch_id", batchId)
       .order("id", { ascending: true });
 
     if (error) throw error;
-    return data?.map((qr) => qr.loqatr_id) || [];
+    return data?.map((qr) => ({ 
+      loqatr_id: qr.loqatr_id, 
+      isAssigned: qr.assigned_to !== null 
+    })) || [];
   }, []);
 
   return {
