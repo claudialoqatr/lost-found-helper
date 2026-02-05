@@ -56,8 +56,9 @@ export default function EditTagPage() {
     setShowUnassignDialog,
   } = useEditTagData({ code });
 
-  const { showDialog, confirmNavigation, cancelNavigation, safeNavigate } = useUnsavedChanges({
+  const { showDialog, handleSave, handleDiscard, cancelNavigation, safeNavigate, isSaving } = useUnsavedChanges({
     hasChanges,
+    onSave: handleSubmit,
   });
 
   if (loading) {
@@ -188,8 +189,10 @@ export default function EditTagPage() {
 
       <UnsavedChangesDialog
         open={showDialog}
-        onConfirm={confirmNavigation}
+        onSave={handleSave}
+        onDiscard={handleDiscard}
         onCancel={cancelNavigation}
+        isSaving={isSaving}
       />
     </AppLayout>
   );

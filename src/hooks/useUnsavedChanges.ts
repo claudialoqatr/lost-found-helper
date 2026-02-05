@@ -1,22 +1,28 @@
 import { useEffect, useState, useCallback } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 interface UseUnsavedChangesOptions {
   /** Function that returns true if there are unsaved changes */
   hasChanges: () => boolean;
+  /** Function to save changes - should return a promise */
+  onSave?: () => Promise<void>;
   /** Optional message for the browser's beforeunload event */
   message?: string;
 }
 
 /**
  * Hook to detect and prompt when navigating away with unsaved changes.
- * Works with BrowserRouter (doesn't require data router).
+ * Supports save, discard, and cancel actions.
  */
-export function useUnsavedChanges({ hasChanges, message = "You have unsaved changes. Are you sure you want to leave?" }: UseUnsavedChangesOptions) {
+export function useUnsavedChanges({ 
+  hasChanges, 
+  onSave,
+  message = "You have unsaved changes. Are you sure you want to leave?" 
+}: UseUnsavedChangesOptions) {
   const [showDialog, setShowDialog] = useState(false);
   const [pendingPath, setPendingPath] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const navigate = useNavigate();
-  const location = useLocation();
 
   // Handle browser navigation (refresh, close tab, external links)
   useEffect(() => {
@@ -32,13 +38,34 @@ export function useUnsavedChanges({ hasChanges, message = "You have unsaved chan
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasChanges, message]);
 
-  const confirmNavigation = useCallback(() => {
+  const navigateToPending = useCallback(() => {
     setShowDialog(false);
     if (pendingPath) {
       navigate(pendingPath);
       setPendingPath(null);
     }
   }, [navigate, pendingPath]);
+
+  const handleSave = useCallback(async () => {
+    if (onSave) {
+      setIsSaving(true);
+      try {
+        await onSave();
+        navigateToPending();
+      } catch (error) {
+        console.error("Failed to save:", error);
+        // Keep dialog open on error
+      } finally {
+        setIsSaving(false);
+      }
+    } else {
+      navigateToPending();
+    }
+  }, [onSave, navigateToPending]);
+
+  const handleDiscard = useCallback(() => {
+    navigateToPending();
+  }, [navigateToPending]);
 
   const cancelNavigation = useCallback(() => {
     setShowDialog(false);
@@ -59,8 +86,10 @@ export function useUnsavedChanges({ hasChanges, message = "You have unsaved chan
 
   return {
     showDialog,
-    confirmNavigation,
+    handleSave,
+    handleDiscard,
     cancelNavigation,
     safeNavigate,
+    isSaving,
   };
 }
