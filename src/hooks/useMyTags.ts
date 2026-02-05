@@ -41,7 +41,7 @@ export function useMyTags(): UseMyTagsReturn {
             icon_name
           )
         `)
-        .eq("status", "active")
+        .in("status", ["active", "assigned"])
         .eq("assigned_to", userProfile.id)
         .order("created_at", { ascending: false });
 
