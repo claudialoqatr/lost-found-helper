@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -48,17 +48,38 @@ export function useFinderPageData({
   const [itemDetails, setItemDetails] = useState<ItemDetailDisplay[]>([]);
   const [ownerFirstName, setOwnerFirstName] = useState<string | null>(null);
 
-  const notifyOwnerOfScan = useCallback(
+  // Track whether we've already logged this scan to prevent duplicates
+  const scanLoggedRef = useRef(false);
+
+  const logScanAndNotify = useCallback(
     async (qrCodeId: number, ownerId: number | null, itemName: string | null) => {
+      // Prevent duplicate scan logging
+      if (scanLoggedRef.current) return;
+      scanLoggedRef.current = true;
+
       try {
+        // Insert scan record
+        const { error: scanError } = await supabase.from("scans").insert({
+          qr_code_id: qrCodeId,
+          latitude: location.latitude,
+          longitude: location.longitude,
+          address: location.address,
+          is_owner: false,
+        });
+
+        if (scanError) {
+          console.error("Failed to log scan:", scanError);
+        }
+
+        // Notify owner
         if (ownerId && itemName) {
           await notifyTagScanned(ownerId, itemName, qrCodeId, location.address);
         }
       } catch (e) {
-        console.error("Notification error:", e);
+        console.error("Scan/notification error:", e);
       }
     },
-    [location.address]
+    [location.latitude, location.longitude, location.address]
   );
 
   const fetchData = useCallback(async () => {
@@ -149,9 +170,9 @@ export function useFinderPageData({
         }
       }
 
-      // Only notify owner and log scan when ?scan=true (physical QR scan)
+      // Only log scan and notify owner when ?scan=true (physical QR scan)
       if (isScan) {
-        await notifyOwnerOfScan(qrData.id, qrData.assigned_to, fetchedItemName);
+        await logScanAndNotify(qrData.id, qrData.assigned_to, fetchedItemName);
       }
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -163,7 +184,7 @@ export function useFinderPageData({
     } finally {
       setLoading(false);
     }
-  }, [code, user, isScan, navigate, toast, notifyOwnerOfScan]);
+  }, [code, user, isScan, navigate, toast, logScanAndNotify]);
 
   useEffect(() => {
     fetchData();
