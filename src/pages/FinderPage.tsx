@@ -22,7 +22,7 @@ export default function FinderPage() {
   const isScan = searchParams.get("scan") === "true";
 
   // Location tracking
-  const { location } = useLocationData();
+  const { location, loading: locationLoading } = useLocationData();
 
   // Data fetching and routing
   const { loading, qrCode, item, itemDetails, setQRCode, getDisplayOwnerName } = useFinderPageData({
@@ -30,6 +30,7 @@ export default function FinderPage() {
     user,
     isScan,
     location,
+    locationLoading,
   });
 
   // Contact reveal state (for public mode)

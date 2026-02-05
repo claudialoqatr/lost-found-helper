@@ -54,6 +54,12 @@ export function ContactRevealGate({
 
     setRevealing(true);
     try {
+      // Build location text: prefer address, fallback to Google Maps link
+      let locationText: string | null = location.address;
+      if (!locationText && location.latitude && location.longitude) {
+        locationText = `https://www.google.com/maps?q=${location.latitude},${location.longitude}`;
+      }
+
       const { data, error } = await supabase.functions.invoke("reveal-contact", {
         body: {
           qr_code_id: qrCodeId,
@@ -61,7 +67,7 @@ export function ContactRevealGate({
           turnstile_token: turnstileToken,
           latitude: location.latitude,
           longitude: location.longitude,
-          address: location.address,
+          address: locationText,
         },
       });
 

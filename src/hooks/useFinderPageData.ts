@@ -16,6 +16,7 @@ interface UseFinderPageDataParams {
   user: User | null;
   isScan: boolean;
   location: LocationData;
+  locationLoading: boolean;
 }
 
 interface UseFinderPageDataReturn {
@@ -38,6 +39,7 @@ export function useFinderPageData({
   user,
   isScan,
   location,
+  locationLoading,
 }: UseFinderPageDataParams): UseFinderPageDataReturn {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -58,12 +60,18 @@ export function useFinderPageData({
       scanLoggedRef.current = true;
 
       try {
+        // Build location text: prefer address, fallback to Google Maps link
+        let locationText: string | null = location.address;
+        if (!locationText && location.latitude && location.longitude) {
+          locationText = `https://www.google.com/maps?q=${location.latitude},${location.longitude}`;
+        }
+
         // Insert scan record
         const { error: scanError } = await supabase.from("scans").insert({
           qr_code_id: qrCodeId,
           latitude: location.latitude,
           longitude: location.longitude,
-          address: location.address,
+          address: locationText,
           is_owner: false,
         });
 
@@ -73,7 +81,7 @@ export function useFinderPageData({
 
         // Notify owner
         if (ownerId && itemName) {
-          await notifyTagScanned(ownerId, itemName, qrCodeId, location.address);
+          await notifyTagScanned(ownerId, itemName, qrCodeId, locationText);
         }
       } catch (e) {
         console.error("Scan/notification error:", e);
@@ -169,11 +177,6 @@ export function useFinderPageData({
           );
         }
       }
-
-      // Only log scan and notify owner when ?scan=true (physical QR scan)
-      if (isScan) {
-        await logScanAndNotify(qrData.id, qrData.assigned_to, fetchedItemName);
-      }
     } catch (error) {
       console.error("Error fetching data:", error);
       toast({
@@ -184,11 +187,18 @@ export function useFinderPageData({
     } finally {
       setLoading(false);
     }
-  }, [code, user, isScan, navigate, toast, logScanAndNotify]);
+  }, [code, user, navigate, toast]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Separate effect for scan logging - waits for location to be ready
+  useEffect(() => {
+    if (!isScan || !qrCode || locationLoading || scanLoggedRef.current) return;
+    
+    logScanAndNotify(qrCode.id, qrCode.assigned_to, item?.name || null);
+  }, [isScan, qrCode, item, locationLoading, logScanAndNotify]);
 
   /**
    * Get display name: prioritize "Item owner name" detail, then fetched owner name, fallback to "Owner"
