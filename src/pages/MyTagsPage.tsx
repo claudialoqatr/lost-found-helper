@@ -9,7 +9,14 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { Tag, QrCode, Globe, Lock, Search } from "lucide-react";
 import { format } from "date-fns";
 import { UnassignTagDialog } from "@/components/UnassignTagDialog";
@@ -18,7 +25,7 @@ import { getIconByName } from "@/components/tag";
 import type { TagWithItem } from "@/types";
 
 type SortOption = "alphabetical" | "last_added" | "last_scanned";
-const ITEMS_PER_PAGE = 20;
+const ITEMS_PER_PAGE = 8;
 
 export default function MyTagsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -38,9 +45,7 @@ export default function MyTagsPage() {
     // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(tag => 
-        tag.item?.name?.toLowerCase().includes(query)
-      );
+      result = result.filter((tag) => tag.item?.name?.toLowerCase().includes(query));
     }
 
     // Sort
@@ -198,9 +203,7 @@ export default function MyTagsPage() {
                 Scan a LOQATR QR code to claim it and start protecting your belongings.
               </p>
               <Button asChild>
-                <Link to="/tag/LOQ-TEST-001">
-                  Try Demo Tag
-                </Link>
+                <Link to="/tag/LOQ-TEST-001">Try Demo Tag</Link>
               </Button>
             </CardContent>
           </Card>
@@ -212,9 +215,7 @@ export default function MyTagsPage() {
             <CardContent className="flex flex-col items-center justify-center py-12 text-center">
               <Search className="w-12 h-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">No matching tags</h3>
-              <p className="text-muted-foreground">
-                No items match "{searchQuery}"
-              </p>
+              <p className="text-muted-foreground">No items match "{searchQuery}"</p>
             </CardContent>
           </Card>
         )}
@@ -224,8 +225,8 @@ export default function MyTagsPage() {
           <>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {paginatedTags.map((tag) => (
-                <Card 
-                  key={tag.id} 
+                <Card
+                  key={tag.id}
                   className="group hover:border-accent/50 transition-colors cursor-pointer active:scale-[0.98]"
                   onClick={() => navigate(`/my-tags/${tag.loqatr_id}`)}
                 >
@@ -239,9 +240,7 @@ export default function MyTagsPage() {
                           })()}
                         </div>
                         <div className="min-w-0">
-                          <CardTitle className="text-lg truncate">
-                            {tag.item?.name || "Unnamed Item"}
-                          </CardTitle>
+                          <CardTitle className="text-lg truncate">{tag.item?.name || "Unnamed Item"}</CardTitle>
                         </div>
                       </div>
                       {getPrivacyBadge(tag.is_public)}
@@ -249,17 +248,14 @@ export default function MyTagsPage() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {tag.item?.description && (
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {tag.item.description}
-                      </p>
+                      <p className="text-sm text-muted-foreground line-clamp-2">{tag.item.description}</p>
                     )}
 
                     <div className="pt-2 border-t border-border/50">
                       <span className="text-xs text-muted-foreground">
-                        {tag.last_scanned_at 
+                        {tag.last_scanned_at
                           ? `Last scanned ${format(new Date(tag.last_scanned_at), "MMM d, yyyy")}`
-                          : "Never scanned"
-                        }
+                          : "Never scanned"}
                       </span>
                     </div>
                   </CardContent>
@@ -273,18 +269,16 @@ export default function MyTagsPage() {
                 <Pagination>
                   <PaginationContent>
                     <PaginationItem>
-                      <PaginationPrevious 
-                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      <PaginationPrevious
+                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                         className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
                       />
                     </PaginationItem>
-                    
+
                     {Array.from({ length: totalPages }, (_, i) => i + 1)
-                      .filter(page => {
+                      .filter((page) => {
                         // Show first, last, current, and adjacent pages
-                        return page === 1 || 
-                               page === totalPages || 
-                               Math.abs(page - currentPage) <= 1;
+                        return page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1;
                       })
                       .map((page, idx, arr) => (
                         <PaginationItem key={page}>
@@ -300,17 +294,19 @@ export default function MyTagsPage() {
                           </PaginationLink>
                         </PaginationItem>
                       ))}
-                    
+
                     <PaginationItem>
-                      <PaginationNext 
-                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      <PaginationNext
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                         className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
                       />
                     </PaginationItem>
                   </PaginationContent>
                 </Pagination>
                 <p className="text-center text-sm text-muted-foreground mt-2">
-                  Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredAndSortedTags.length)} of {filteredAndSortedTags.length}
+                  Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}-
+                  {Math.min(currentPage * ITEMS_PER_PAGE, filteredAndSortedTags.length)} of{" "}
+                  {filteredAndSortedTags.length}
                 </p>
               </div>
             )}
