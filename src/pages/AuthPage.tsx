@@ -19,7 +19,7 @@ import logoDark from "@/assets/logo-dark.svg";
 import logoLight from "@/assets/logo-light.svg";
 
 // Cloudflare Turnstile - use production key from env, fallback to test key for local dev
-const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || "1x00000000000000000000AA";
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY;
 
 const loginSchema = z.object({
   email: z.string().max(254, "Email is too long").email("Please enter a valid email"),
@@ -30,42 +30,50 @@ const forgotPasswordSchema = z.object({
   email: z.string().max(254, "Email is too long").email("Please enter a valid email"),
 });
 
-const updatePasswordSchema = z.object({
-  password: z.string()
-    .min(8, "Password must be at least 8 characters")
-    .max(128, "Password is too long")
-    .regex(/[A-Z]/, "Password must contain an uppercase letter")
-    .regex(/[a-z]/, "Password must contain a lowercase letter")
-    .regex(/\d/, "Password must contain a number")
-    .regex(/[!@#$%^&*(),.?":{}|<>]/, "Password must contain a special character"),
-  confirmPassword: z.string().max(128, "Password is too long"),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
-});
+const updatePasswordSchema = z
+  .object({
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .max(128, "Password is too long")
+      .regex(/[A-Z]/, "Password must contain an uppercase letter")
+      .regex(/[a-z]/, "Password must contain a lowercase letter")
+      .regex(/\d/, "Password must contain a number")
+      .regex(/[!@#$%^&*(),.?":{}|<>]/, "Password must contain a special character"),
+    confirmPassword: z.string().max(128, "Password is too long"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  });
 
-const signupSchema = z.object({
-  name: z.string()
-    .min(2, "Name must be at least 2 characters")
-    .max(100, "Name must be less than 100 characters")
-    .regex(/^[a-zA-Z\s'-]+$/, "Name can only contain letters, spaces, hyphens, and apostrophes"),
-  email: z.string().max(254, "Email is too long").email("Please enter a valid email"),
-  phone: z.string()
-    .min(10, "Please enter a valid phone number")
-    .max(20, "Phone number is too long")
-    .regex(/^\+?[\d\s-()]+$/, "Please enter a valid phone number"),
-  password: z.string()
-    .min(8, "Password must be at least 8 characters")
-    .max(128, "Password is too long")
-    .regex(/[A-Z]/, "Password must contain an uppercase letter")
-    .regex(/[a-z]/, "Password must contain a lowercase letter")
-    .regex(/\d/, "Password must contain a number")
-    .regex(/[!@#$%^&*(),.?":{}|<>]/, "Password must contain a special character"),
-  confirmPassword: z.string().max(128, "Password is too long"),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
-});
+const signupSchema = z
+  .object({
+    name: z
+      .string()
+      .min(2, "Name must be at least 2 characters")
+      .max(100, "Name must be less than 100 characters")
+      .regex(/^[a-zA-Z\s'-]+$/, "Name can only contain letters, spaces, hyphens, and apostrophes"),
+    email: z.string().max(254, "Email is too long").email("Please enter a valid email"),
+    phone: z
+      .string()
+      .min(10, "Please enter a valid phone number")
+      .max(20, "Phone number is too long")
+      .regex(/^\+?[\d\s-()]+$/, "Please enter a valid phone number"),
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .max(128, "Password is too long")
+      .regex(/[A-Z]/, "Password must contain an uppercase letter")
+      .regex(/[a-z]/, "Password must contain a lowercase letter")
+      .regex(/\d/, "Password must contain a number")
+      .regex(/[!@#$%^&*(),.?":{}|<>]/, "Password must contain a special character"),
+    confirmPassword: z.string().max(128, "Password is too long"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  });
 
 type LoginFormData = z.infer<typeof loginSchema>;
 type SignupFormData = z.infer<typeof signupSchema>;
@@ -104,7 +112,9 @@ export default function AuthPage() {
 
   // Listen for PASSWORD_RECOVERY event to show update password form
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY") {
         setMode("update-password");
       }
@@ -136,9 +146,10 @@ export default function AuthPage() {
       toast({
         variant: "destructive",
         title: "Login failed",
-        description: error.message === "Invalid login credentials" 
-          ? "Invalid email or password. Please try again."
-          : error.message,
+        description:
+          error.message === "Invalid login credentials"
+            ? "Invalid email or password. Please try again."
+            : error.message,
       });
     } else {
       toast({ title: "Welcome back!" });
@@ -221,19 +232,27 @@ export default function AuthPage() {
 
   const getTitle = () => {
     switch (mode) {
-      case "login": return "Welcome back";
-      case "signup": return "Create account";
-      case "forgot-password": return "Reset password";
-      case "update-password": return "Set new password";
+      case "login":
+        return "Welcome back";
+      case "signup":
+        return "Create account";
+      case "forgot-password":
+        return "Reset password";
+      case "update-password":
+        return "Set new password";
     }
   };
 
   const getDescription = () => {
     switch (mode) {
-      case "login": return "Sign in to manage your tags and messages";
-      case "signup": return "Start protecting your belongings today";
-      case "forgot-password": return "Enter your email and we'll send you a reset link";
-      case "update-password": return "Enter your new password below";
+      case "login":
+        return "Sign in to manage your tags and messages";
+      case "signup":
+        return "Start protecting your belongings today";
+      case "forgot-password":
+        return "Enter your email and we'll send you a reset link";
+      case "update-password":
+        return "Enter your new password below";
     }
   };
 
@@ -249,19 +268,11 @@ export default function AuthPage() {
         <CardHeader className="text-center space-y-2">
           <div className="mx-auto mb-4">
             <Link to="/my-tags">
-              <img 
-                src={resolvedTheme === "dark" ? logoLight : logoDark} 
-                alt="LOQATR" 
-                className="h-16 w-auto mx-auto"
-              />
+              <img src={resolvedTheme === "dark" ? logoLight : logoDark} alt="LOQATR" className="h-16 w-auto mx-auto" />
             </Link>
           </div>
-          <CardTitle className="text-2xl">
-            {getTitle()}
-          </CardTitle>
-          <CardDescription>
-            {getDescription()}
-          </CardDescription>
+          <CardTitle className="text-2xl">{getTitle()}</CardTitle>
+          <CardDescription>{getDescription()}</CardDescription>
         </CardHeader>
 
         <CardContent key={mode}>
@@ -275,12 +286,7 @@ export default function AuthPage() {
                     <FormItem>
                       <FormLabel>Email</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="email" 
-                          placeholder="you@example.com"
-                          maxLength={254}
-                          {...field} 
-                        />
+                        <Input type="email" placeholder="you@example.com" maxLength={254} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -293,12 +299,7 @@ export default function AuthPage() {
                     <FormItem>
                       <FormLabel>Password</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="password" 
-                          placeholder="••••••••"
-                          maxLength={128}
-                          {...field} 
-                        />
+                        <Input type="password" placeholder="••••••••" maxLength={128} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -313,11 +314,7 @@ export default function AuthPage() {
                     Forgot password?
                   </button>
                 </div>
-                <Button 
-                  type="submit" 
-                  className="w-full" 
-                  disabled={isSubmitting}
-                >
+                <Button type="submit" className="w-full" disabled={isSubmitting}>
                   {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -337,13 +334,11 @@ export default function AuthPage() {
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Name <span className="text-destructive">*</span></FormLabel>
+                      <FormLabel>
+                        Name <span className="text-destructive">*</span>
+                      </FormLabel>
                       <FormControl>
-                        <Input 
-                          placeholder="Your name"
-                          maxLength={100}
-                          {...field} 
-                        />
+                        <Input placeholder="Your name" maxLength={100} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -354,14 +349,11 @@ export default function AuthPage() {
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email <span className="text-destructive">*</span></FormLabel>
+                      <FormLabel>
+                        Email <span className="text-destructive">*</span>
+                      </FormLabel>
                       <FormControl>
-                        <Input 
-                          type="email" 
-                          placeholder="you@example.com"
-                          maxLength={254}
-                          {...field} 
-                        />
+                        <Input type="email" placeholder="you@example.com" maxLength={254} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -372,9 +364,11 @@ export default function AuthPage() {
                   name="phone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Phone Number <span className="text-destructive">*</span></FormLabel>
+                      <FormLabel>
+                        Phone Number <span className="text-destructive">*</span>
+                      </FormLabel>
                       <FormControl>
-                        <PhoneInput 
+                        <PhoneInput
                           value={field.value}
                           onChange={field.onChange}
                           placeholder="Phone number"
@@ -390,14 +384,11 @@ export default function AuthPage() {
                   name="password"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Password <span className="text-destructive">*</span></FormLabel>
+                      <FormLabel>
+                        Password <span className="text-destructive">*</span>
+                      </FormLabel>
                       <FormControl>
-                        <Input 
-                          type="password" 
-                          placeholder="••••••••"
-                          maxLength={128}
-                          {...field} 
-                        />
+                        <Input type="password" placeholder="••••••••" maxLength={128} {...field} />
                       </FormControl>
                       <PasswordStrengthIndicator password={field.value} />
                       <FormMessage />
@@ -409,14 +400,11 @@ export default function AuthPage() {
                   name="confirmPassword"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Confirm Password <span className="text-destructive">*</span></FormLabel>
+                      <FormLabel>
+                        Confirm Password <span className="text-destructive">*</span>
+                      </FormLabel>
                       <FormControl>
-                        <Input 
-                          type="password" 
-                          placeholder="••••••••"
-                          maxLength={128}
-                          {...field} 
-                        />
+                        <Input type="password" placeholder="••••••••" maxLength={128} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -432,11 +420,7 @@ export default function AuthPage() {
                   />
                 </div>
 
-                <Button 
-                  type="submit" 
-                  className="w-full" 
-                  disabled={isSubmitting || !turnstileToken}
-                >
+                <Button type="submit" className="w-full" disabled={isSubmitting || !turnstileToken}>
                   {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -458,22 +442,13 @@ export default function AuthPage() {
                     <FormItem>
                       <FormLabel>Email</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="email" 
-                          placeholder="you@example.com"
-                          maxLength={254}
-                          {...field} 
-                        />
+                        <Input type="email" placeholder="you@example.com" maxLength={254} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                <Button 
-                  type="submit" 
-                  className="w-full" 
-                  disabled={isSubmitting}
-                >
+                <Button type="submit" className="w-full" disabled={isSubmitting}>
                   {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -495,12 +470,7 @@ export default function AuthPage() {
                     <FormItem>
                       <FormLabel>New Password</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="password" 
-                          placeholder="••••••••"
-                          maxLength={128}
-                          {...field} 
-                        />
+                        <Input type="password" placeholder="••••••••" maxLength={128} {...field} />
                       </FormControl>
                       <PasswordStrengthIndicator password={field.value} />
                       <FormMessage />
@@ -514,22 +484,13 @@ export default function AuthPage() {
                     <FormItem>
                       <FormLabel>Confirm New Password</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="password" 
-                          placeholder="••••••••"
-                          maxLength={128}
-                          {...field} 
-                        />
+                        <Input type="password" placeholder="••••••••" maxLength={128} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                <Button 
-                  type="submit" 
-                  className="w-full" 
-                  disabled={isSubmitting}
-                >
+                <Button type="submit" className="w-full" disabled={isSubmitting}>
                   {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -563,9 +524,7 @@ export default function AuthPage() {
                 }}
                 className="text-sm text-muted-foreground hover:text-accent transition-colors"
               >
-                {mode === "login" 
-                  ? "Don't have an account? Sign up" 
-                  : "Already have an account? Sign in"}
+                {mode === "login" ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
               </button>
             )}
           </div>
