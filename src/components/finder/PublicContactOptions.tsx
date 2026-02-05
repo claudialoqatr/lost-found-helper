@@ -29,7 +29,13 @@ export function PublicContactOptions({
   const getWhatsAppLink = () => {
     if (!contact.owner_phone) return null;
     const cleanPhone = contact.owner_phone.replace(/\D/g, "");
-    const locationText = locationAddress ? `\n\n📍 Location: ${locationAddress}` : "";
+    
+    // Build location text: prefer address, fallback to Google Maps link
+    let locationText = "";
+    if (locationAddress) {
+      locationText = `\n\n📍 Location: ${locationAddress}`;
+    }
+    
     const message = encodeURIComponent(
       `Hi ${displayName} 👋🏼\n\nI found your ${itemName} using your *LOQATR* tag! 👀\n\nHow can I help? 🥳${locationText}\n\n_Get yours! www.loqatr.com_`
     );
