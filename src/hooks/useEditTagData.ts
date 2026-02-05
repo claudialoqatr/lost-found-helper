@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useUserProfile } from "@/hooks/useUserProfile";
-import { useQRCode } from "@/hooks/useQRCode";
+import { useQRCode, useInvalidateQRCode } from "@/hooks/useQRCode";
 import { useItemDetailsManager } from "@/hooks/useItemDetailsManager";
 import { useAuthRedirect } from "@/hooks/useAuthRedirect";
 import { supabase } from "@/integrations/supabase/client";
@@ -64,6 +64,7 @@ export function useEditTagData({
   const navigate = useNavigate();
   const { toast } = useToast();
   const { userProfile, loading: profileLoading } = useUserProfile();
+  const invalidateQRCode = useInvalidateQRCode();
 
   // Use shared auth redirect hook
   const { loading: authLoading } = useAuthRedirect({
@@ -264,6 +265,9 @@ export function useEditTagData({
       if (qrUpdateError) throw qrUpdateError;
 
       resetInitialValues();
+      
+      // Invalidate cache so next load gets fresh data
+      invalidateQRCode(code);
 
       toast({
         title: "Item updated!",
@@ -293,6 +297,8 @@ export function useEditTagData({
     toast,
     resetInitialValues,
     getAllDetailsForSave,
+    invalidateQRCode,
+    code,
   ]);
 
   // Unassign handler
