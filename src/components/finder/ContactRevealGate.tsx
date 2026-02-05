@@ -55,8 +55,10 @@ export function ContactRevealGate({
     setRevealing(true);
     try {
       // Build location text: prefer address, fallback to Google Maps link
-      let locationText: string | null = location.address;
-      if (!locationText && location.latitude && location.longitude) {
+      let locationText: string | null = null;
+      if (location.address && location.address.trim()) {
+        locationText = location.address;
+      } else if (location.latitude && location.longitude) {
         locationText = `https://www.google.com/maps?q=${location.latitude},${location.longitude}`;
       }
 

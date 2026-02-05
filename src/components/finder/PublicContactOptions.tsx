@@ -32,7 +32,7 @@ export function PublicContactOptions({
     
     // Build location text: prefer address, fallback to Google Maps link
     let locationText = "";
-    if (locationAddress) {
+    if (locationAddress && locationAddress.trim()) {
       locationText = `\n\n📍 Location: ${locationAddress}`;
     }
     
