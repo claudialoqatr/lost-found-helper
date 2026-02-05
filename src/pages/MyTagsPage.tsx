@@ -199,12 +199,9 @@ export default function MyTagsPage() {
                 <QrCode className="w-8 h-8 text-muted-foreground" />
               </div>
               <h3 className="text-lg font-semibold mb-2">No tags claimed yet</h3>
-              <p className="text-muted-foreground mb-6 max-w-sm">
-                Scan a LOQATR QR code to claim it and start protecting your belongings.
+              <p className="text-muted-foreground max-w-sm">
+                Use your phone's camera to scan a LOQATR QR code and claim your first tag.
               </p>
-              <Button asChild>
-                <Link to="/tag/LOQ-TEST-001">Try Demo Tag</Link>
-              </Button>
             </CardContent>
           </Card>
         )}
