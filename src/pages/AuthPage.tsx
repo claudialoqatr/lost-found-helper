@@ -19,7 +19,7 @@ import logoDark from "@/assets/logo-dark.svg";
 import logoLight from "@/assets/logo-light.svg";
 
 // Cloudflare Turnstile - use production key from env, fallback to test key for local dev
-const TURNSTILE_SITE_KEY = "0x4AAAAAACXfjBOjTCebi7m3";
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || "0x4AAAAAABDpqobG9QdvKn-D";
 
 const loginSchema = z.object({
   email: z.string().max(254, "Email is too long").email("Please enter a valid email"),
