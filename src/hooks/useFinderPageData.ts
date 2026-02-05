@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { notifyTagScanned } from "@/lib/notifications";
-import type { ItemInfo, QRCodeData, LocationData, RevealedContact } from "@/types";
+import type { ItemInfo, QRCodeData, RevealedContact } from "@/types";
 import type { User } from "@supabase/supabase-js";
 
 export interface ItemDetailDisplay {
@@ -15,8 +15,6 @@ interface UseFinderPageDataParams {
   code: string | undefined;
   user: User | null;
   isScan: boolean;
-  location: LocationData;
-  locationLoading: boolean;
 }
 
 interface UseFinderPageDataReturn {
@@ -25,6 +23,7 @@ interface UseFinderPageDataReturn {
   item: ItemInfo | null;
   itemDetails: ItemDetailDisplay[];
   ownerFirstName: string | null;
+  currentScanId: number | null;
   setQRCode: React.Dispatch<React.SetStateAction<QRCodeData | null>>;
   getDisplayOwnerName: (revealedContact?: RevealedContact | null) => string;
 }
@@ -38,8 +37,6 @@ export function useFinderPageData({
   code,
   user,
   isScan,
-  location,
-  locationLoading,
 }: UseFinderPageDataParams): UseFinderPageDataReturn {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -49,47 +46,48 @@ export function useFinderPageData({
   const [item, setItem] = useState<ItemInfo | null>(null);
   const [itemDetails, setItemDetails] = useState<ItemDetailDisplay[]>([]);
   const [ownerFirstName, setOwnerFirstName] = useState<string | null>(null);
+  const [currentScanId, setCurrentScanId] = useState<number | null>(null);
 
   // Track whether we've already logged this scan to prevent duplicates
   const scanLoggedRef = useRef(false);
 
   const logScanAndNotify = useCallback(
-    async (qrCodeId: number, ownerId: number | null, itemName: string | null) => {
+    async (qrCodeId: number, ownerId: number | null, itemName: string | null): Promise<number | null> => {
       // Prevent duplicate scan logging
-      if (scanLoggedRef.current) return;
+      if (scanLoggedRef.current) return null;
       scanLoggedRef.current = true;
 
       try {
-        // Build location text: prefer address, fallback to Google Maps link
-        let locationText: string | null = null;
-        if (location.address && location.address.trim()) {
-          locationText = location.address;
-        } else if (location.latitude && location.longitude) {
-          locationText = `https://www.google.com/maps?q=${location.latitude},${location.longitude}`;
-        }
-
-        // Insert scan record
-        const { error: scanError } = await supabase.from("scans").insert({
-          qr_code_id: qrCodeId,
-          latitude: location.latitude,
-          longitude: location.longitude,
-          address: locationText,
-          is_owner: false,
-        });
+        // Insert scan record WITHOUT location - will be updated silently later
+        const { data: scanData, error: scanError } = await supabase
+          .from("scans")
+          .insert({
+            qr_code_id: qrCodeId,
+            is_owner: false,
+          })
+          .select("id")
+          .single();
 
         if (scanError) {
           console.error("Failed to log scan:", scanError);
+          return null;
         }
 
-        // Notify owner
+        const newScanId = scanData?.id || null;
+        setCurrentScanId(newScanId);
+
+        // Notify owner (location will be added by silent update)
         if (ownerId && itemName) {
-          await notifyTagScanned(ownerId, itemName, qrCodeId, locationText);
+          await notifyTagScanned(ownerId, itemName, qrCodeId, null);
         }
+
+        return newScanId;
       } catch (e) {
         console.error("Scan/notification error:", e);
+        return null;
       }
     },
-    [location.latitude, location.longitude, location.address]
+    []
   );
 
   const fetchData = useCallback(async () => {
@@ -195,12 +193,12 @@ export function useFinderPageData({
     fetchData();
   }, [fetchData]);
 
-  // Separate effect for scan logging - waits for location to be ready
+  // Separate effect for scan logging - runs immediately, no location wait
   useEffect(() => {
-    if (!isScan || !qrCode || locationLoading || scanLoggedRef.current) return;
+    if (!isScan || !qrCode || scanLoggedRef.current) return;
     
     logScanAndNotify(qrCode.id, qrCode.assigned_to, item?.name || null);
-  }, [isScan, qrCode, item, locationLoading, logScanAndNotify]);
+  }, [isScan, qrCode, item, logScanAndNotify]);
 
   /**
    * Get display name: prioritize "Item owner name" detail, then fetched owner name, fallback to "Owner"
@@ -228,6 +226,7 @@ export function useFinderPageData({
     item,
     itemDetails,
     ownerFirstName,
+    currentScanId,
     setQRCode,
     getDisplayOwnerName,
   };

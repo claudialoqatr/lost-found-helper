@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { MapPin } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { useLocationData } from "@/hooks/useLocationData";
+import { useSilentLocationCapture } from "@/hooks/useSilentLocationCapture";
 import { useFinderPageData } from "@/hooks/useFinderPageData";
 import {
   FinderHeader,
@@ -21,17 +21,15 @@ export default function FinderPage() {
   // Only log scans when ?scan=true is present (physical QR scan)
   const isScan = searchParams.get("scan") === "true";
 
-  // Location tracking
-  const { location, loading: locationLoading } = useLocationData();
-
-  // Data fetching and routing
-  const { loading, qrCode, item, itemDetails, setQRCode, getDisplayOwnerName } = useFinderPageData({
+  // Data fetching and routing (no location blocking)
+  const { loading, qrCode, item, itemDetails, currentScanId, setQRCode, getDisplayOwnerName } = useFinderPageData({
     code,
     user,
     isScan,
-    location,
-    locationLoading,
   });
+
+  // Silent background location capture - updates scan record when ready
+  const location = useSilentLocationCapture(currentScanId);
 
   // Contact reveal state (for public mode)
   const [revealedContact, setRevealedContact] = useState<RevealedContact | null>(null);
