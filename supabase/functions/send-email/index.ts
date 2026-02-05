@@ -59,9 +59,13 @@ const handler = async (req: Request): Promise<Response> => {
       action_type: email_action_type,
     });
 
-    // Build the verification URL
+    // Build the verification URL with the published app domain
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? site_url;
-    const verifyUrl = `${supabaseUrl}/auth/v1/verify?token=${token_hash}&type=${email_action_type}&redirect_to=${redirect_to}`;
+    const appUrl = "https://loqatr-staging.lovable.app";
+    // Use the app URL for redirects, preserving any path from the original redirect_to
+    const redirectPath = redirect_to ? new URL(redirect_to).pathname : "/";
+    const finalRedirectTo = `${appUrl}${redirectPath}`;
+    const verifyUrl = `${supabaseUrl}/auth/v1/verify?token=${token_hash}&type=${email_action_type}&redirect_to=${encodeURIComponent(finalRedirectTo)}`;
 
     // Render the appropriate email template based on action type
     let html: string;
