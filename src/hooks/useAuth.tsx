@@ -65,7 +65,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, name: string, phone: string) => {
-    const redirectUrl = `${window.location.origin}/`;
+    // Always use the production/staging URL for email redirects
+    const redirectUrl = "https://loqatr-staging.lovable.app/";
     
     const { error } = await supabase.auth.signUp({
       email,
@@ -93,7 +94,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const resetPassword = async (email: string) => {
-    const redirectUrl = `${window.location.origin}/auth`;
+    // Always use the production/staging URL for email redirects
+    const redirectUrl = "https://loqatr-staging.lovable.app/auth";
     
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: redirectUrl,
