@@ -50,7 +50,7 @@ export function Turnstile({
   onExpireRef.current = onExpire;
 
   useEffect(() => {
-    // Prevent double rendering
+    // Prevent double rendering within the same mount
     if (renderedRef.current) return;
     
     const renderWidget = () => {
@@ -70,25 +70,24 @@ export function Turnstile({
     // Check if script is already loaded
     if (window.turnstile) {
       renderWidget();
-      return;
+    } else {
+      // Check if script is currently loading
+      const existingScript = document.querySelector('script[src*="turnstile"]');
+      if (existingScript) {
+        window.onloadTurnstileCallback = renderWidget;
+      } else {
+        // Load Turnstile script
+        window.onloadTurnstileCallback = renderWidget;
+        
+        const script = document.createElement("script");
+        script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback";
+        script.async = true;
+        script.defer = true;
+        document.head.appendChild(script);
+      }
     }
 
-    // Check if script is currently loading
-    const existingScript = document.querySelector('script[src*="turnstile"]');
-    if (existingScript) {
-      window.onloadTurnstileCallback = renderWidget;
-      return;
-    }
-
-    // Load Turnstile script
-    window.onloadTurnstileCallback = renderWidget;
-    
-    const script = document.createElement("script");
-    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback";
-    script.async = true;
-    script.defer = true;
-    document.head.appendChild(script);
-
+    // Cleanup function - ALWAYS runs on unmount to reset state
     return () => {
       if (widgetIdRef.current && window.turnstile) {
         try {
@@ -96,6 +95,7 @@ export function Turnstile({
         } catch (e) {
           // Widget might already be removed
         }
+        widgetIdRef.current = null;
       }
       renderedRef.current = false;
     };
