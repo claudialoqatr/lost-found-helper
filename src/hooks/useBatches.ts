@@ -30,25 +30,35 @@ export function useBatches() {
 
       if (!batchData || batchData.length === 0) return [];
 
-      // Get all batch IDs
-      const batchIds = batchData.map((b) => b.id);
+      // Fetch counts per batch - need to query each batch to avoid row limits
+      // Using Promise.all for parallel fetching
+      const countsPromises = batchData.map(async (batch) => {
+        const { count: totalCount } = await supabase
+          .from("qrcodes")
+          .select("*", { count: "exact", head: true })
+          .eq("batch_id", batch.id);
 
-      // Fetch all QR codes for these batches in a single query
-      const { data: qrcodesData } = await supabase
-        .from("qrcodes")
-        .select("batch_id, assigned_to")
-        .in("batch_id", batchIds);
+        const { count: assignedCount } = await supabase
+          .from("qrcodes")
+          .select("*", { count: "exact", head: true })
+          .eq("batch_id", batch.id)
+          .not("assigned_to", "is", null);
 
-      // Build count maps: batch_id -> total count and assigned count
+        return {
+          batchId: batch.id,
+          totalCount: totalCount || 0,
+          assignedCount: assignedCount || 0,
+        };
+      });
+
+      const counts = await Promise.all(countsPromises);
+
+      // Build count maps
       const totalCountMap = new Map<number, number>();
       const assignedCountMap = new Map<number, number>();
-      (qrcodesData || []).forEach((qr) => {
-        if (qr.batch_id) {
-          totalCountMap.set(qr.batch_id, (totalCountMap.get(qr.batch_id) || 0) + 1);
-          if (qr.assigned_to !== null) {
-            assignedCountMap.set(qr.batch_id, (assignedCountMap.get(qr.batch_id) || 0) + 1);
-          }
-        }
+      counts.forEach(({ batchId, totalCount, assignedCount }) => {
+        totalCountMap.set(batchId, totalCount);
+        assignedCountMap.set(batchId, assignedCount);
       });
 
       // Merge counts into batches
