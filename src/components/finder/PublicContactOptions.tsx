@@ -30,7 +30,7 @@ export function PublicContactOptions({
     if (!contact.owner_phone) return null;
     const cleanPhone = contact.owner_phone.replace(/\D/g, "");
     
-    // Build location text: prefer address, fallback to Google Maps link
+    // Build location text: prefer address, fallback empty (location updates silently)
     let locationText = "";
     if (locationAddress && locationAddress.trim()) {
       locationText = `\n\n📍 Location: ${locationAddress}`;
