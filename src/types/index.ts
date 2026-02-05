@@ -29,7 +29,7 @@ export interface QRCodeData {
   updated_at?: string | null;
 }
 
-export interface TagWithItem extends Omit<QRCodeData, 'batch_id'> {
+export interface TagWithItem extends Omit<QRCodeData, "batch_id"> {
   last_scanned_at: string | null;
   item: ItemInfo | null;
 }
@@ -96,20 +96,15 @@ export interface MessageWithItem {
 
 // ============ Field Types Constant ============
 
-/**
- * Field types available in the item details dropdown.
- * Note: "Item owner name" is handled separately via a dedicated input field.
- */
-export const ITEM_DETAIL_FIELD_TYPES = [
-  "Emergency contact", 
-  "Return address",
-  "Reward offer",
-  "Medical info",
-  "Pet info",
-  "Other"
-] as const;
+// Replace the hardcoded constant with this interface
+export interface ItemDetailField {
+  id: number;
+  type: string; // e.g., 'Emergency contact', 'Pet info'
+}
 
-export type ItemDetailFieldType = typeof ITEM_DETAIL_FIELD_TYPES[number];
+// Keep a type helper if you need it for specific logic,
+// but it will now be a generic string based on DB records.
+export type DynamicItemDetailFieldType = string;
 
 // ============ QR Code Batch Types ============
 
