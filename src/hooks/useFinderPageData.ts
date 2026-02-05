@@ -87,8 +87,8 @@ export function useFinderPageData({
 
       setQRCode(qrData);
 
-      // If not claimed, redirect to claim page
-      if (!qrData.assigned_to || qrData.status !== "active") {
+      // If not claimed (no owner or explicitly unassigned), redirect to claim page
+      if (!qrData.assigned_to || qrData.status === "unassigned" || qrData.status === "retired") {
         navigate(`/tag/${code}`);
         return;
       }
