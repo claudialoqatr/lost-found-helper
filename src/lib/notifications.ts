@@ -67,24 +67,47 @@ export async function notifyTagUnassigned(userId: number, itemName: string) {
 }
 
 // Helper to create a tag scanned notification (for owner when their tag is scanned)
+// Rate limited to one notification per item per day
 export async function notifyTagScanned(
   ownerId: number,
   itemName: string,
   qrcodeId: number,
   locationAddress?: string | null
 ) {
-  const locationText = locationAddress
-    ? `\n📍 Scanned at: ${locationAddress}`
-    : "";
+  try {
+    // Check if there's already a tag_scanned notification for this qrcode in the last 24 hours
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    
+    const { data: existingNotification } = await supabase
+      .from("notifications")
+      .select("id")
+      .eq("user_id", ownerId)
+      .eq("qrcode_id", qrcodeId)
+      .eq("type", "tag_scanned")
+      .gte("created_at", twentyFourHoursAgo)
+      .limit(1)
+      .single();
 
-  await createNotification({
-    userId: ownerId,
-    type: "tag_scanned",
-    title: `Your tag was scanned: ${itemName}`,
-    message: `Someone scanned the QR code for your "${itemName}".${locationText}`,
-    qrcodeId,
-    location: locationAddress,
-  });
+    if (existingNotification) {
+      console.log("Skipping tag_scanned notification - already sent within 24 hours for qrcode:", qrcodeId);
+      return;
+    }
+
+    const locationText = locationAddress
+      ? `\n📍 Scanned at: ${locationAddress}`
+      : "";
+
+    await createNotification({
+      userId: ownerId,
+      type: "tag_scanned",
+      title: `Your tag was scanned: ${itemName}`,
+      message: `Someone scanned the QR code for your "${itemName}".${locationText}`,
+      qrcodeId,
+      location: locationAddress,
+    });
+  } catch (error) {
+    console.error("Error in notifyTagScanned:", error);
+  }
 }
 
 // Helper to create a message received notification
