@@ -203,7 +203,7 @@ export function useEditTagData({
     };
   }, [itemName, isPublic, description, iconName, itemDetails, isItemOwner]);
 
-  // Submit handler
+  // Submit handler - throws on failure so callers can handle it
   const handleSubmit = useCallback(async () => {
     if (!itemName.trim()) {
       toast({
@@ -211,7 +211,7 @@ export function useEditTagData({
         description: "Please enter a name for your item.",
         variant: "destructive",
       });
-      return;
+      throw new Error("Item name required");
     }
 
     if (!isItemOwner) {
@@ -222,11 +222,13 @@ export function useEditTagData({
           description: "Please enter the name of the item's owner.",
           variant: "destructive",
         });
-        return;
+        throw new Error("Item owner name required");
       }
     }
 
-    if (!qrCode || !userProfile || !item) return;
+    if (!qrCode || !userProfile || !item) {
+      throw new Error("Missing required data");
+    }
 
     setSaving(true);
     try {
@@ -267,6 +269,7 @@ export function useEditTagData({
         description: "We couldn't save your updates. Please check your connection and try again.",
         variant: "destructive",
       });
+      throw error; // Re-throw so callers know save failed
     } finally {
       setSaving(false);
     }
