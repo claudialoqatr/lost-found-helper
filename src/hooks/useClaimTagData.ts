@@ -102,8 +102,8 @@ export function useClaimTagData({
   useEffect(() => {
     if (qrLoading || !qrCode) return;
 
-    // If already claimed and active, redirect appropriately
-    if (qrCode.assigned_to && qrCode.status === "active") {
+    // If already claimed and assigned, redirect appropriately
+    if (qrCode.assigned_to && qrCode.status === "assigned") {
       const isOwner = userProfile?.id === qrCode.assigned_to;
       if (isOwner) {
         navigate(`/my-tags/${code}`, { replace: true });
@@ -161,7 +161,7 @@ export function useClaimTagData({
           item_id: newItem.id,
           assigned_to: userProfile.id,
           is_public: isPublic,
-          status: "active",
+          status: "assigned",
           updated_at: new Date().toISOString(),
         })
         .eq("id", qrCode.id)
