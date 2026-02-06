@@ -32,10 +32,10 @@ export function useItemDetailsManager(
   const [isItemOwner, setIsItemOwner] = useState(true);
   const [itemOwnerName, setItemOwnerName] = useState(options.initialOwnerName || "");
 
-  const addDetail = useCallback(() => {
+  const addDetail = useCallback((defaultFieldType: string = "Emergency contact") => {
     setItemDetails((prev) => [
       ...prev,
-      { id: crypto.randomUUID(), fieldType: "Emergency contact", value: "" },
+      { id: crypto.randomUUID(), fieldType: defaultFieldType, value: "" },
     ]);
   }, []);
 

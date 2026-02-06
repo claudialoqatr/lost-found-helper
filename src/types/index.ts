@@ -94,22 +94,13 @@ export interface MessageWithItem {
   } | null;
 }
 
-// ============ Field Types Constant ============
+// ============ Field Types ============
 
 /**
- * Field types available in the item details dropdown.
- * Note: "Item owner name" is handled separately via a dedicated input field.
+ * Field types are now fetched from the item_detail_fields database table.
+ * Use the useItemDetailFields hook to get the available field types.
+ * "Item owner name" is handled separately via a dedicated input field.
  */
-export const ITEM_DETAIL_FIELD_TYPES = [
-  "Emergency contact", 
-  "Return address",
-  "Reward offer",
-  "Medical info",
-  "Pet info",
-  "Other"
-] as const;
-
-export type ItemDetailFieldType = typeof ITEM_DETAIL_FIELD_TYPES[number];
 
 // ============ QR Code Batch Types ============
 
