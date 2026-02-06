@@ -2,7 +2,8 @@ import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ITEM_DETAIL_FIELD_TYPES, type ItemDetail } from "@/types";
+import { useItemDetailFields } from "@/hooks/useItemDetailFields";
+import type { ItemDetail } from "@/types";
 
 // Re-export ItemDetail for backward compatibility
 export type { ItemDetail };
@@ -15,20 +16,26 @@ interface ItemDetailsEditorProps {
 }
 
 export function ItemDetailsEditor({ details, onAdd, onRemove, onUpdate }: ItemDetailsEditorProps) {
+  const { selectableFields, isLoading } = useItemDetailFields();
+
   return (
     <div>
       <h3 className="font-semibold text-lg mb-4">Item Details</h3>
       <div className="space-y-3">
         {details.map((detail) => (
           <div key={detail.id} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-            <Select value={detail.fieldType} onValueChange={(v) => onUpdate(detail.id, "fieldType", v)}>
+            <Select 
+              value={detail.fieldType} 
+              onValueChange={(v) => onUpdate(detail.id, "fieldType", v)}
+              disabled={isLoading}
+            >
               <SelectTrigger className="w-full sm:w-[160px] shrink-0">
-                <SelectValue />
+                <SelectValue placeholder={isLoading ? "Loading..." : "Select type"} />
               </SelectTrigger>
               <SelectContent>
-                {ITEM_DETAIL_FIELD_TYPES.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {type}
+                {selectableFields.map((field) => (
+                  <SelectItem key={field.id} value={field.type}>
+                    {field.type}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -53,7 +60,7 @@ export function ItemDetailsEditor({ details, onAdd, onRemove, onUpdate }: ItemDe
           </div>
         ))}
       </div>
-      <Button variant="outline" className="mt-4" onClick={onAdd}>
+      <Button variant="outline" className="mt-4" onClick={onAdd} disabled={isLoading}>
         <Plus className="h-4 w-4 mr-2" />
         Add new detail
       </Button>
