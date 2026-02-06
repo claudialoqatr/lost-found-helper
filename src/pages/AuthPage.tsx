@@ -82,7 +82,7 @@ type UpdatePasswordFormData = z.infer<typeof updatePasswordSchema>;
 type AuthMode = "login" | "signup" | "forgot-password" | "update-password";
 
 export default function AuthPage() {
-  const [mode, setMode] = useState<AuthMode>("login");
+  const [mode, setMode] = useState<AuthMode>("signup");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const { user, signIn, signUp, resetPassword } = useAuth();
