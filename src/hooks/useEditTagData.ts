@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useUserProfile } from "@/hooks/useUserProfile";
@@ -91,6 +91,12 @@ export function useEditTagData({
   const [description, setDescription] = useState("");
   const [iconName, setIconName] = useState("Package");
   const [initializedItemId, setInitializedItemId] = useState<number | null>(null);
+  const [initializedDataHash, setInitializedDataHash] = useState<string>("");
+
+  // Create a hash of fetched details to detect when fresh data arrives
+  const fetchedDataHash = useMemo(() => {
+    return JSON.stringify(fetchedDetails.map(d => ({ field_id: d.field_id, value: d.value })));
+  }, [fetchedDetails]);
 
   // Action state
   const [saving, setSaving] = useState(false);
@@ -133,8 +139,9 @@ export function useEditTagData({
   useEffect(() => {
     if (qrLoading || !qrCode || !item) return;
     
-    // Skip if already initialized for this specific item
-    if (initializedItemId === item.id) return;
+    // Skip if already initialized for this specific item AND with the same data
+    // This allows re-initialization when React Query fetches fresh data
+    if (initializedItemId === item.id && initializedDataHash === fetchedDataHash) return;
 
     // Verify ownership
     if (qrCode.assigned_to !== userProfile?.id) {
@@ -183,15 +190,18 @@ export function useEditTagData({
       itemOwnerName: ownerNameDetail?.value || "",
     };
 
-    // Mark this item as initialized
+    // Mark this item and data as initialized
     setInitializedItemId(item.id);
+    setInitializedDataHash(fetchedDataHash);
   }, [
     qrLoading,
     qrCode,
     item,
     fetchedDetails,
+    fetchedDataHash,
     userProfile?.id,
     initializedItemId,
+    initializedDataHash,
     navigate,
     toast,
     setItemDetails,
