@@ -37,6 +37,7 @@ export default function ClaimTagPage() {
     addDetail,
     removeDetail,
     updateDetail,
+    updateDetailField,
     handleItemOwnerChange,
     handleSubmit,
     saving,
@@ -96,6 +97,7 @@ export default function ClaimTagPage() {
                 onAdd={addDetail}
                 onRemove={removeDetail}
                 onUpdate={updateDetail}
+                onFieldChange={updateDetailField}
               />
 
               {/* Description */}

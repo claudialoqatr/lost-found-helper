@@ -44,6 +44,7 @@ interface UseEditTagDataReturn {
   addDetail: (defaultFieldId: number, defaultFieldType: string) => void;
   removeDetail: (id: string) => void;
   updateDetail: (id: string, field: "field_id" | "value", value: number | string) => void;
+  updateDetailField: (id: string, field_id: number, fieldType: string) => void;
   handleItemOwnerChange: (isOwner: boolean) => void;
   hasChanges: () => boolean;
   resetInitialValues: () => void;
@@ -89,7 +90,7 @@ export function useEditTagData({
   const [isPublic, setIsPublic] = useState(true);
   const [description, setDescription] = useState("");
   const [iconName, setIconName] = useState("Package");
-  const [formInitialized, setFormInitialized] = useState(false);
+  const [initializedItemId, setInitializedItemId] = useState<number | null>(null);
 
   // Action state
   const [saving, setSaving] = useState(false);
@@ -110,6 +111,7 @@ export function useEditTagData({
     addDetail,
     removeDetail,
     updateDetail,
+    updateDetailField,
     handleItemOwnerChange,
     getAllDetailsForSave,
     getOwnerNameForSave,
@@ -129,7 +131,10 @@ export function useEditTagData({
 
   // Verify ownership and initialize form when data loads
   useEffect(() => {
-    if (qrLoading || !qrCode || formInitialized) return;
+    if (qrLoading || !qrCode || !item) return;
+    
+    // Skip if already initialized for this specific item
+    if (initializedItemId === item.id) return;
 
     // Verify ownership
     if (qrCode.assigned_to !== userProfile?.id) {
@@ -144,12 +149,9 @@ export function useEditTagData({
 
     // Initialize form state from fetched data
     setIsPublic(qrCode.is_public);
-
-    if (item) {
-      setItemName(item.name);
-      setDescription(item.description || "");
-      setIconName(item.icon_name || "Package");
-    }
+    setItemName(item.name);
+    setDescription(item.description || "");
+    setIconName(item.icon_name || "Package");
 
     // Extract owner name from details and filter it out for the details list
     // Owner name field type is "Item owner name" (case-insensitive check)
@@ -164,6 +166,7 @@ export function useEditTagData({
       setItemOwnerName(ownerNameDetail.value);
       setIsItemOwner(false);
     } else {
+      setItemOwnerName("");
       setIsItemOwner(true);
     }
     
@@ -171,23 +174,24 @@ export function useEditTagData({
 
     // Store initial values for change detection
     initialValuesRef.current = {
-      itemName: item?.name || "",
+      itemName: item.name || "",
       isPublic: qrCode.is_public,
-      description: item?.description || "",
-      iconName: item?.icon_name || "Package",
+      description: item.description || "",
+      iconName: item.icon_name || "Package",
       itemDetails: JSON.stringify(otherDetails),
       isItemOwner: !ownerNameDetail,
       itemOwnerName: ownerNameDetail?.value || "",
     };
 
-    setFormInitialized(true);
+    // Mark this item as initialized
+    setInitializedItemId(item.id);
   }, [
     qrLoading,
     qrCode,
     item,
     fetchedDetails,
     userProfile?.id,
-    formInitialized,
+    initializedItemId,
     navigate,
     toast,
     setItemDetails,
@@ -388,6 +392,7 @@ export function useEditTagData({
     addDetail,
     removeDetail,
     updateDetail,
+    updateDetailField,
     handleItemOwnerChange,
     hasChanges,
     resetInitialValues,

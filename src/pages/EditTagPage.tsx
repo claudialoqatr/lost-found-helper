@@ -48,6 +48,7 @@ export default function EditTagPage() {
     addDetail,
     removeDetail,
     updateDetail,
+    updateDetailField,
     handleItemOwnerChange,
     hasChanges,
     handleSubmit,
@@ -121,6 +122,7 @@ export default function EditTagPage() {
                 onAdd={addDetail}
                 onRemove={removeDetail}
                 onUpdate={updateDetail}
+                onFieldChange={updateDetailField}
               />
 
               {/* Description */}

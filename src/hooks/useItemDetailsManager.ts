@@ -16,6 +16,8 @@ interface UseItemDetailsManagerReturn {
   addDetail: (defaultFieldId: number, defaultFieldType: string) => void;
   removeDetail: (id: string) => void;
   updateDetail: (id: string, field: "field_id" | "value", value: number | string) => void;
+  /** Update both field_id and fieldType together for dropdown changes */
+  updateDetailField: (id: string, field_id: number, fieldType: string) => void;
   handleItemOwnerChange: (isOwner: boolean) => void;
   /** Get all details for saving (field_id + value only) */
   getAllDetailsForSave: () => { field_id: number; value: string }[];
@@ -49,6 +51,13 @@ export function useItemDetailsManager(
   const updateDetail = useCallback((id: string, field: "field_id" | "value", value: number | string) => {
     setItemDetails((prev) =>
       prev.map((d) => (d.id === id ? { ...d, [field]: value } : d))
+    );
+  }, []);
+
+  /** Update both field_id and fieldType atomically when dropdown changes */
+  const updateDetailField = useCallback((id: string, field_id: number, fieldType: string) => {
+    setItemDetails((prev) =>
+      prev.map((d) => (d.id === id ? { ...d, field_id, fieldType } : d))
     );
   }, []);
 
@@ -90,6 +99,7 @@ export function useItemDetailsManager(
     addDetail,
     removeDetail,
     updateDetail,
+    updateDetailField,
     handleItemOwnerChange,
     getAllDetailsForSave,
     getOwnerNameForSave,
