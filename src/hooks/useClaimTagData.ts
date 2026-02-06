@@ -32,6 +32,7 @@ interface UseClaimTagDataReturn {
   addDetail: (defaultFieldId: number, defaultFieldType: string) => void;
   removeDetail: (id: string) => void;
   updateDetail: (id: string, field: "field_id" | "value", value: number | string) => void;
+  updateDetailField: (id: string, field_id: number, fieldType: string) => void;
   handleItemOwnerChange: (isOwner: boolean) => void;
   handleSubmit: () => Promise<void>;
   saving: boolean;
@@ -79,6 +80,7 @@ export function useClaimTagData({
     addDetail,
     removeDetail,
     updateDetail,
+    updateDetailField,
     handleItemOwnerChange,
     getAllDetailsForSave,
     getOwnerNameForSave,
@@ -246,6 +248,7 @@ export function useClaimTagData({
     addDetail,
     removeDetail,
     updateDetail,
+    updateDetailField,
     handleItemOwnerChange,
     handleSubmit,
     saving,
