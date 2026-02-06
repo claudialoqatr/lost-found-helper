@@ -129,10 +129,11 @@ export function useQRCode(
 export function useInvalidateQRCode() {
   const queryClient = useQueryClient();
   return (loqatrId?: string) => {
-    if (loqatrId) {
-      queryClient.invalidateQueries({ queryKey: ["qrCode", loqatrId] });
-    } else {
-      queryClient.invalidateQueries({ queryKey: ["qrCode"] });
-    }
+    // Use partial matching to invalidate all queries for this loqatr_id
+    // regardless of fetchDetails option
+    queryClient.invalidateQueries({ 
+      queryKey: loqatrId ? ["qrCode", loqatrId] : ["qrCode"],
+      exact: false 
+    });
   };
 }
