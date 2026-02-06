@@ -49,7 +49,7 @@ export default function QRScanRouter() {
         }
 
         // Check if tag is unclaimed (no assignment or unassigned status)
-        const isUnclaimed = !qrData.assigned_to || qrData.status === "unassigned";
+        const isUnclaimed = !qrData.assigned_to || qrData.status !== "assigned";
 
         if (isUnclaimed) {
           // Redirect to claim page
