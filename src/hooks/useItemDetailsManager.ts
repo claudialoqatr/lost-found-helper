@@ -13,16 +13,19 @@ interface UseItemDetailsManagerReturn {
   setIsItemOwner: (isOwner: boolean) => void;
   itemOwnerName: string;
   setItemOwnerName: (name: string) => void;
-  addDetail: () => void;
+  addDetail: (defaultFieldId: number, defaultFieldType: string) => void;
   removeDetail: (id: string) => void;
-  updateDetail: (id: string, field: "fieldType" | "value", value: string) => void;
+  updateDetail: (id: string, field: "field_id" | "value", value: number | string) => void;
   handleItemOwnerChange: (isOwner: boolean) => void;
-  /** Get all details including the owner name detail (for saving) */
-  getAllDetailsForSave: () => ItemDetail[];
+  /** Get all details for saving (field_id + value only) */
+  getAllDetailsForSave: () => { field_id: number; value: string }[];
+  /** Get owner name field_id and value for saving */
+  getOwnerNameForSave: (ownerNameFieldId: number) => { field_id: number; value: string } | null;
 }
 
 /**
  * Hook to manage item details state and operations.
+ * Uses numeric field_id for database linking.
  * Item owner name is managed separately to prevent field type confusion.
  */
 export function useItemDetailsManager(
@@ -32,10 +35,10 @@ export function useItemDetailsManager(
   const [isItemOwner, setIsItemOwner] = useState(true);
   const [itemOwnerName, setItemOwnerName] = useState(options.initialOwnerName || "");
 
-  const addDetail = useCallback((defaultFieldType: string = "Emergency contact") => {
+  const addDetail = useCallback((defaultFieldId: number, defaultFieldType: string) => {
     setItemDetails((prev) => [
       ...prev,
-      { id: crypto.randomUUID(), fieldType: defaultFieldType, value: "" },
+      { id: crypto.randomUUID(), field_id: defaultFieldId, fieldType: defaultFieldType, value: "" },
     ]);
   }, []);
 
@@ -43,7 +46,7 @@ export function useItemDetailsManager(
     setItemDetails((prev) => prev.filter((d) => d.id !== id));
   }, []);
 
-  const updateDetail = useCallback((id: string, field: "fieldType" | "value", value: string) => {
+  const updateDetail = useCallback((id: string, field: "field_id" | "value", value: number | string) => {
     setItemDetails((prev) =>
       prev.map((d) => (d.id === id ? { ...d, [field]: value } : d))
     );
@@ -58,23 +61,24 @@ export function useItemDetailsManager(
   }, []);
 
   /**
-   * Combines regular item details with the owner name detail for saving.
-   * Filters out any existing "Item owner name" entries and adds the current one if applicable.
+   * Returns array of { field_id, value } for saving to database.
+   * Filters out empty values.
    */
-  const getAllDetailsForSave = useCallback((): ItemDetail[] => {
-    // Filter out any existing "Item owner name" entries from details
-    const filteredDetails = itemDetails.filter((d) => d.fieldType !== "Item owner name");
-    
-    // If not the item owner and there's a name, add the owner name detail
+  const getAllDetailsForSave = useCallback((): { field_id: number; value: string }[] => {
+    return itemDetails
+      .filter((d) => d.value.trim())
+      .map((d) => ({ field_id: d.field_id, value: d.value.trim() }));
+  }, [itemDetails]);
+
+  /**
+   * Returns owner name detail for saving if applicable.
+   */
+  const getOwnerNameForSave = useCallback((ownerNameFieldId: number): { field_id: number; value: string } | null => {
     if (!isItemOwner && itemOwnerName.trim()) {
-      return [
-        { id: crypto.randomUUID(), fieldType: "Item owner name", value: itemOwnerName.trim() },
-        ...filteredDetails,
-      ];
+      return { field_id: ownerNameFieldId, value: itemOwnerName.trim() };
     }
-    
-    return filteredDetails;
-  }, [itemDetails, isItemOwner, itemOwnerName]);
+    return null;
+  }, [isItemOwner, itemOwnerName]);
 
   return {
     itemDetails,
@@ -88,5 +92,6 @@ export function useItemDetailsManager(
     updateDetail,
     handleItemOwnerChange,
     getAllDetailsForSave,
+    getOwnerNameForSave,
   };
 }

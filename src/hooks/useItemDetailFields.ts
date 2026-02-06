@@ -8,7 +8,7 @@ export interface ItemDetailField {
 
 /**
  * Hook to fetch item detail field types from the database.
- * Excludes "Item owner name" as it's handled separately via a dedicated input field.
+ * Returns fields with id and type for use in forms.
  */
 export function useItemDetailFields() {
   const { data: fields = [], isLoading, error } = useQuery({
@@ -30,9 +30,19 @@ export function useItemDetailFields() {
     (field) => field.type.toLowerCase() !== "item owner name"
   );
 
+  // Find the "Item owner name" field for saving
+  const ownerNameField = fields.find(
+    (field) => field.type.toLowerCase() === "item owner name"
+  );
+
+  // Get a default field for new details (first selectable field)
+  const defaultField = selectableFields[0] || null;
+
   return {
     fields,
     selectableFields,
+    ownerNameField,
+    defaultField,
     isLoading,
     error,
   };

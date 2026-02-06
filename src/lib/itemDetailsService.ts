@@ -1,37 +1,29 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { ItemDetail } from "@/types";
+
+interface ItemDetailForSave {
+  field_id: number;
+  value: string;
+}
 
 /**
- * Saves item details to the database.
- * Handles finding or creating the field type and inserting the detail.
+ * Saves item details to the database using numeric field_id.
  */
-export async function saveItemDetails(itemId: number, details: ItemDetail[]): Promise<void> {
-  for (const detail of details) {
-    if (!detail.value.trim()) continue;
+export async function saveItemDetails(itemId: number, details: ItemDetailForSave[]): Promise<void> {
+  const validDetails = details.filter((d) => d.value.trim() && d.field_id);
+  
+  if (validDetails.length === 0) return;
 
-    // Find or create the field type
-    let { data: fieldData } = await supabase
-      .from("item_detail_fields")
-      .select("id")
-      .eq("type", detail.fieldType)
-      .maybeSingle();
+  const insertData = validDetails.map((detail) => ({
+    item_id: itemId,
+    field_id: detail.field_id,
+    value: detail.value.trim(),
+  }));
 
-    if (!fieldData) {
-      const { data: newField } = await supabase
-        .from("item_detail_fields")
-        .insert({ type: detail.fieldType })
-        .select()
-        .single();
-      fieldData = newField;
-    }
-
-    if (fieldData) {
-      await supabase.from("item_details").insert({
-        item_id: itemId,
-        field_id: fieldData.id,
-        value: detail.value.trim(),
-      });
-    }
+  const { error } = await supabase.from("item_details").insert(insertData);
+  
+  if (error) {
+    console.error("Error saving item details:", error);
+    throw error;
   }
 }
 
@@ -39,13 +31,17 @@ export async function saveItemDetails(itemId: number, details: ItemDetail[]): Pr
  * Deletes all item details for a given item.
  */
 export async function deleteItemDetails(itemId: number): Promise<void> {
-  await supabase.from("item_details").delete().eq("item_id", itemId);
+  const { error } = await supabase.from("item_details").delete().eq("item_id", itemId);
+  if (error) {
+    console.error("Error deleting item details:", error);
+    throw error;
+  }
 }
 
 /**
  * Updates item details by deleting existing ones and saving new ones.
  */
-export async function updateItemDetails(itemId: number, details: ItemDetail[]): Promise<void> {
+export async function updateItemDetails(itemId: number, details: ItemDetailForSave[]): Promise<void> {
   await deleteItemDetails(itemId);
   await saveItemDetails(itemId, details);
 }

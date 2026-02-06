@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useQRCode, useInvalidateQRCode } from "@/hooks/useQRCode";
 import { useItemDetailsManager } from "@/hooks/useItemDetailsManager";
+import { useItemDetailFields } from "@/hooks/useItemDetailFields";
 import { useAuthRedirect } from "@/hooks/useAuthRedirect";
 import { supabase } from "@/integrations/supabase/client";
 import { updateItemDetails } from "@/lib/itemDetailsService";
@@ -40,9 +41,9 @@ interface UseEditTagDataReturn {
   isItemOwner: boolean;
   itemOwnerName: string;
   setItemOwnerName: (name: string) => void;
-  addDetail: () => void;
+  addDetail: (defaultFieldId: number, defaultFieldType: string) => void;
   removeDetail: (id: string) => void;
-  updateDetail: (id: string, field: "fieldType" | "value", value: string) => void;
+  updateDetail: (id: string, field: "field_id" | "value", value: number | string) => void;
   handleItemOwnerChange: (isOwner: boolean) => void;
   hasChanges: () => boolean;
   resetInitialValues: () => void;
@@ -80,6 +81,9 @@ export function useEditTagData({
     error: qrError,
   } = useQRCode(code, { fetchDetails: true });
 
+  // Get field definitions for owner name field
+  const { ownerNameField } = useItemDetailFields();
+
   // Form state
   const [itemName, setItemName] = useState("");
   const [isPublic, setIsPublic] = useState(true);
@@ -108,6 +112,7 @@ export function useEditTagData({
     updateDetail,
     handleItemOwnerChange,
     getAllDetailsForSave,
+    getOwnerNameForSave,
   } = useItemDetailsManager();
 
   // Handle QR fetch errors
@@ -147,8 +152,13 @@ export function useEditTagData({
     }
 
     // Extract owner name from details and filter it out for the details list
-    const ownerNameDetail = fetchedDetails.find((d) => d.fieldType === "Item owner name");
-    const otherDetails = fetchedDetails.filter((d) => d.fieldType !== "Item owner name");
+    // Owner name field type is "Item owner name" (case-insensitive check)
+    const ownerNameDetail = fetchedDetails.find(
+      (d) => d.fieldType.toLowerCase() === "item owner name"
+    );
+    const otherDetails = fetchedDetails.filter(
+      (d) => d.fieldType.toLowerCase() !== "item owner name"
+    );
     
     if (ownerNameDetail) {
       setItemOwnerName(ownerNameDetail.value);
@@ -250,8 +260,17 @@ export function useEditTagData({
 
       if (updateError) throw updateError;
 
-      // Get all details including owner name for saving
+      // Collect all details for saving
       const detailsToSave = getAllDetailsForSave();
+      
+      // Add owner name if applicable
+      if (ownerNameField) {
+        const ownerNameDetail = getOwnerNameForSave(ownerNameField.id);
+        if (ownerNameDetail) {
+          detailsToSave.push(ownerNameDetail);
+        }
+      }
+      
       await updateItemDetails(item.id, detailsToSave);
 
       const { error: qrUpdateError } = await supabase
@@ -297,6 +316,8 @@ export function useEditTagData({
     toast,
     resetInitialValues,
     getAllDetailsForSave,
+    getOwnerNameForSave,
+    ownerNameField,
     invalidateQRCode,
     code,
   ]);

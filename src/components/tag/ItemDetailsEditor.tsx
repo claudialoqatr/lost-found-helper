@@ -10,13 +10,34 @@ export type { ItemDetail };
 
 interface ItemDetailsEditorProps {
   details: ItemDetail[];
-  onAdd: () => void;
+  onAdd: (defaultFieldId: number, defaultFieldType: string) => void;
   onRemove: (id: string) => void;
-  onUpdate: (id: string, field: "fieldType" | "value", value: string) => void;
+  onUpdate: (id: string, field: "field_id" | "value", value: number | string) => void;
+  /** Callback to update fieldType label when field_id changes */
+  onFieldChange?: (id: string, field_id: number, fieldType: string) => void;
 }
 
-export function ItemDetailsEditor({ details, onAdd, onRemove, onUpdate }: ItemDetailsEditorProps) {
-  const { selectableFields, isLoading } = useItemDetailFields();
+export function ItemDetailsEditor({ details, onAdd, onRemove, onUpdate, onFieldChange }: ItemDetailsEditorProps) {
+  const { selectableFields, defaultField, isLoading } = useItemDetailFields();
+
+  const handleFieldIdChange = (detailId: string, newFieldIdStr: string) => {
+    const newFieldId = Number(newFieldIdStr);
+    const selectedField = selectableFields.find((f) => f.id === newFieldId);
+    
+    // Update field_id
+    onUpdate(detailId, "field_id", newFieldId);
+    
+    // Also update the fieldType label if callback provided
+    if (onFieldChange && selectedField) {
+      onFieldChange(detailId, newFieldId, selectedField.type);
+    }
+  };
+
+  const handleAddDetail = () => {
+    if (defaultField) {
+      onAdd(defaultField.id, defaultField.type);
+    }
+  };
 
   return (
     <div>
@@ -25,8 +46,8 @@ export function ItemDetailsEditor({ details, onAdd, onRemove, onUpdate }: ItemDe
         {details.map((detail) => (
           <div key={detail.id} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
             <Select 
-              value={detail.fieldType} 
-              onValueChange={(v) => onUpdate(detail.id, "fieldType", v)}
+              value={String(detail.field_id)} 
+              onValueChange={(v) => handleFieldIdChange(detail.id, v)}
               disabled={isLoading}
             >
               <SelectTrigger className="w-full sm:w-[160px] shrink-0">
@@ -34,7 +55,7 @@ export function ItemDetailsEditor({ details, onAdd, onRemove, onUpdate }: ItemDe
               </SelectTrigger>
               <SelectContent>
                 {selectableFields.map((field) => (
-                  <SelectItem key={field.id} value={field.type}>
+                  <SelectItem key={field.id} value={String(field.id)}>
                     {field.type}
                   </SelectItem>
                 ))}
@@ -60,7 +81,12 @@ export function ItemDetailsEditor({ details, onAdd, onRemove, onUpdate }: ItemDe
           </div>
         ))}
       </div>
-      <Button variant="outline" className="mt-4" onClick={onAdd} disabled={isLoading}>
+      <Button 
+        variant="outline" 
+        className="mt-4" 
+        onClick={handleAddDetail} 
+        disabled={isLoading || !defaultField}
+      >
         <Plus className="h-4 w-4 mr-2" />
         Add new detail
       </Button>
