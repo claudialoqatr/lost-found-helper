@@ -499,7 +499,7 @@ export type Database = {
       }
     }
     Enums: {
-      qr_code_status: "assigned" | "unassigned" | "active" | "retired"
+      qr_code_status: "assigned" | "unassigned" | "retired"
       user_permission: "read" | "write" | "delete" | "admin"
     }
     CompositeTypes: {
@@ -628,7 +628,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      qr_code_status: ["assigned", "unassigned", "active", "retired"],
+      qr_code_status: ["assigned", "unassigned", "retired"],
       user_permission: ["read", "write", "delete", "admin"],
     },
   },
