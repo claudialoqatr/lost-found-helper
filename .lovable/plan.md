@@ -1,86 +1,134 @@
 
-# Fix Item Details Persistence in Edit Tag Page
+# Fix Item Details Persistence - Final Resolution
 
 ## Problem Summary
-When editing a tag and saving changes, the item details (including "Item owner name" and other details) are correctly saved to the database but are not displayed when returning to the edit page. This creates a confusing experience where saved data appears to be lost.
+Even though the technical implementation details were applied (initializedItemId, updateDetailField, onFieldChange), item details are still not persisting correctly when the edit page is reopened. The data IS being saved to the database, but is not being loaded back properly.
 
-## Root Causes Identified
+## Root Cause Analysis
 
-### 1. Form Initialization Race Condition
-The `useEditTagData` hook uses a `formInitialized` flag to prevent re-initialization. When React Query returns cached data first, the form initializes with potentially stale/empty data. When fresh data arrives, the flag is already `true`, so fresh data is ignored.
+The issue is a **data reference equality problem** in the initialization logic:
 
-### 2. Missing Field Type Synchronization
-The `ItemDetailsEditor` component has an `onFieldChange` callback for updating the `fieldType` display label when the user changes the dropdown. This callback is not being passed from the page components, causing display mismatches.
+```typescript
+// In useEditTagData.ts, line 137:
+if (initializedItemId === item.id) return;
+```
 
-### 3. Disconnected State Management
-The `useItemDetailsManager` hook maintains its own internal state that becomes disconnected from the fetched data after the initial load. There's no mechanism to sync it when new data arrives.
+This check happens BEFORE `fetchedDetails` (the item details from the database) are evaluated. The problem is:
+
+1. First render: `item.id = 161`, `fetchedDetails = []` (empty from cache)
+2. Form initializes with empty details, sets `initializedItemId = 161`
+3. Fresh data arrives: `item.id = 161`, `fetchedDetails = [{Age: 12}, {Owner: Sarah}]`
+4. Check runs: `initializedItemId (161) === item.id (161)` → **RETURNS EARLY**
+5. Fresh details are NEVER loaded into form state
+
+The guard only checks `item.id`, but when cached and fresh data have the same item ID but DIFFERENT item details, the fresh details are ignored.
 
 ## Solution
 
-### Step 1: Fix Data-Dependent Form Initialization
-**File: `src/hooks/useEditTagData.ts`**
+The initialization guard must ALSO consider whether the fetched details have changed. This can be done by:
 
-Change the initialization logic to depend on the actual data, not just a boolean flag. Use the item ID as the key for initialization:
+1. **Adding a data fingerprint check** - Compare a hash of the fetched details to detect when fresh data differs from what was used to initialize
 
-```text
-Replace the formInitialized boolean with a reference to the item ID that was initialized.
-Only re-initialize when loading a different item, not just on first render.
-```
+2. **Or tracking the fetched details reference** - Since React Query returns new array references when data changes, we can detect this
 
-### Step 2: Add Field Type Update Handler
-**File: `src/hooks/useItemDetailsManager.ts`**
+### Recommended Approach: Track fetchedDetails Length
 
-Add a function to update both `field_id` and `fieldType` together:
+Add an additional check that compares the current form state against what's being fetched. If the fetched details are different and haven't been applied, re-initialize:
 
 ```text
-Add updateDetailField function that updates both field_id and fieldType atomically.
-This ensures the display label stays in sync with the selected field ID.
+File: src/hooks/useEditTagData.ts
+
+Change the initialization effect to:
+1. Keep the initializedItemId check for basic item identity
+2. Add a secondary check: if fetchedDetails has data but local itemDetails is empty, 
+   AND we're not currently saving, re-sync the form state
+
+OR more robustly:
+3. Store a "dataVersion" or "lastFetchedAt" timestamp that changes when React Query 
+   refreshes, and use that in the dependency check
 ```
-
-### Step 3: Pass Field Change Callback
-**Files: `src/pages/EditTagPage.tsx` and `src/pages/ClaimTagPage.tsx`**
-
-Pass the `onFieldChange` callback to `ItemDetailsEditor`:
-
-```text
-Add onFieldChange prop that calls the new updateDetailField function.
-```
-
-### Step 4: Improve Cache Invalidation Timing
-**File: `src/hooks/useEditTagData.ts`**
-
-Ensure cache is invalidated and form state is reset properly after save:
-
-```text
-After invalidateQRCode, reset formInitialized so fresh data loads properly.
-Consider using a unique identifier per item rather than a boolean.
-```
-
-## Technical Implementation Details
-
-### useEditTagData.ts Changes:
-1. Replace `formInitialized: boolean` with `initializedItemId: number | null`
-2. Change the guard condition from `if (formInitialized)` to `if (initializedItemId === item?.id)`
-3. After successful save, don't reset the initialized ID (the data should match what was just saved)
-4. Reset `initializedItemId` to `null` when navigating to a different item
-
-### useItemDetailsManager.ts Changes:
-1. Add `updateDetailField(id: string, field_id: number, fieldType: string)` function
-2. This function updates both properties in a single state update
-
-### ItemDetailsEditor Integration:
-1. Export the new function from the hook
-2. Pass it as `onFieldChange` prop to the editor component
 
 ## Files to Modify
-1. `src/hooks/useEditTagData.ts` - Fix initialization logic
-2. `src/hooks/useItemDetailsManager.ts` - Add combined field update function
-3. `src/pages/EditTagPage.tsx` - Pass onFieldChange callback
-4. `src/pages/ClaimTagPage.tsx` - Pass onFieldChange callback
+
+### 1. src/hooks/useEditTagData.ts
+
+**Current code (lines 133-137):**
+```typescript
+// Verify ownership and initialize form when data loads
+useEffect(() => {
+  if (qrLoading || !qrCode || !item) return;
+  
+  // Skip if already initialized for this specific item
+  if (initializedItemId === item.id) return;
+```
+
+**Updated code:**
+```typescript
+// Verify ownership and initialize form when data loads
+useEffect(() => {
+  if (qrLoading || !qrCode || !item) return;
+  
+  // Skip if already initialized for this specific item AND we have the same data
+  // The fetchedDetails array reference changes when React Query fetches fresh data
+  // So we need to re-initialize when fetchedDetails changes, even for the same item
+  if (initializedItemId === item.id && fetchedDetails.length === itemDetails.length) {
+    // Additional check: if we have fetched data but empty local state, something is wrong
+    if (fetchedDetails.length > 0 || itemDetails.length > 0) {
+      return;
+    }
+  }
+```
+
+This adds a safety check: if we fetched details from the server but our local state is empty, we should re-initialize even if the item ID matches.
+
+### Alternative Approach (More Robust)
+
+Track a "data hash" to detect when fresh data arrives:
+
+```typescript
+// Add state to track what data was used for initialization
+const [initializedDataHash, setInitializedDataHash] = useState<string>("");
+
+// Create a hash of the fetched details
+const dataHash = useMemo(() => {
+  return JSON.stringify(fetchedDetails.map(d => ({ field_id: d.field_id, value: d.value })));
+}, [fetchedDetails]);
+
+// In the effect
+useEffect(() => {
+  if (qrLoading || !qrCode || !item) return;
+  
+  // Skip if already initialized with this exact data
+  if (initializedItemId === item.id && initializedDataHash === dataHash) return;
+  
+  // ... initialization code ...
+  
+  setInitializedItemId(item.id);
+  setInitializedDataHash(dataHash);
+}, [/* deps including dataHash */]);
+```
 
 ## Expected Outcome
-After these changes:
-- Saved item details will persist and display correctly when reopening the edit page
-- The "This is not my item" toggle will retain its state
-- Item owner name will be saved and loaded properly
-- Field type labels will stay synchronized with selected field IDs
+
+After this fix:
+- When navigating to the edit page, item details will load correctly from the database
+- The "This is not my item" toggle will reflect the saved state (on if owner name exists)
+- Item owner name will be displayed in the dedicated field
+- Saving and returning to the page will show all previously saved details
+- The cache invalidation after save will trigger a fresh fetch that properly re-initializes the form
+
+## Technical Details
+
+### Why the current code fails:
+
+1. **TanStack Query caching**: Returns cached (possibly empty) data immediately
+2. **Same item ID**: `initializedItemId === item.id` passes even with stale data
+3. **No data comparison**: The guard doesn't check if the actual details data has changed
+4. **Premature exit**: The effect returns early, never applying fresh data to form state
+
+### Why the fix works:
+
+1. **Data-aware guard**: Checks both item identity AND data content
+2. **Handles cache refresh**: When React Query fetches fresh data, the hash/length changes
+3. **Re-initializes form**: Fresh details are properly copied to form state
+4. **Preserves user edits**: Once initialized, subsequent fetches don't overwrite user changes (as long as data matches)
