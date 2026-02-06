@@ -81,11 +81,14 @@ export function useQRCode(
             .eq("item_id", fetchedItem.id);
 
           if (rawDetails) {
-            detailsData = rawDetails.map((d) => ({
-              id: crypto.randomUUID(),
-              fieldType: d.item_detail_fields?.type || "Other",
-              value: d.value,
-            }));
+            detailsData = rawDetails
+              .filter((d) => d.field_id && d.item_detail_fields)
+              .map((d) => ({
+                id: crypto.randomUUID(),
+                field_id: d.field_id!,
+                fieldType: d.item_detail_fields!.type,
+                value: d.value,
+              }));
           }
         }
       }

@@ -45,7 +45,8 @@ export interface ItemInfo {
 
 export interface ItemDetail {
   id: string;
-  fieldType: string;
+  field_id: number;
+  fieldType: string; // Display label from item_detail_fields.type
   value: string;
 }
 

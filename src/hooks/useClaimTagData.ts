@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useQRCode } from "@/hooks/useQRCode";
 import { useItemDetailsManager } from "@/hooks/useItemDetailsManager";
+import { useItemDetailFields } from "@/hooks/useItemDetailFields";
 import { useAuthRedirect } from "@/hooks/useAuthRedirect";
 import { supabase } from "@/integrations/supabase/client";
 import { saveItemDetails } from "@/lib/itemDetailsService";
@@ -28,9 +29,9 @@ interface UseClaimTagDataReturn {
   isItemOwner: boolean;
   itemOwnerName: string;
   setItemOwnerName: (name: string) => void;
-  addDetail: () => void;
+  addDetail: (defaultFieldId: number, defaultFieldType: string) => void;
   removeDetail: (id: string) => void;
-  updateDetail: (id: string, field: "fieldType" | "value", value: string) => void;
+  updateDetail: (id: string, field: "field_id" | "value", value: number | string) => void;
   handleItemOwnerChange: (isOwner: boolean) => void;
   handleSubmit: () => Promise<void>;
   saving: boolean;
@@ -59,6 +60,9 @@ export function useClaimTagData({
     error: qrError,
   } = useQRCode(code, { fetchDetails: false });
 
+  // Get field definitions for owner name field
+  const { ownerNameField } = useItemDetailFields();
+
   // Form state
   const [itemName, setItemName] = useState("");
   const [isPublic, setIsPublic] = useState(true);
@@ -77,6 +81,7 @@ export function useClaimTagData({
     updateDetail,
     handleItemOwnerChange,
     getAllDetailsForSave,
+    getOwnerNameForSave,
   } = useItemDetailsManager();
 
   // Handle QR fetch errors
@@ -175,8 +180,17 @@ export function useClaimTagData({
         return;
       }
 
-      // Get all details including owner name for saving
+      // Collect all details for saving
       const detailsToSave = getAllDetailsForSave();
+      
+      // Add owner name if applicable
+      if (ownerNameField) {
+        const ownerNameDetail = getOwnerNameForSave(ownerNameField.id);
+        if (ownerNameDetail) {
+          detailsToSave.push(ownerNameDetail);
+        }
+      }
+      
       if (detailsToSave.length > 0 && newItem) {
         await saveItemDetails(newItem.id, detailsToSave);
       }
@@ -210,6 +224,8 @@ export function useClaimTagData({
     toast,
     navigate,
     getAllDetailsForSave,
+    getOwnerNameForSave,
+    ownerNameField,
   ]);
 
   return {
