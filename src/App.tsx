@@ -15,6 +15,7 @@ import MyTagsPage from "./pages/MyTagsPage";
 import MessagesPage from "./pages/MessagesPage";
 import BatchesPage from "./pages/admin/BatchesPage";
 import BatchDetailPage from "./pages/admin/BatchDetailPage";
+import RetailersPage from "./pages/admin/RetailersPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -39,6 +40,7 @@ const App = () => (
               {/* Admin Routes */}
               <Route path="/admin/batches" element={<BatchesPage />} />
               <Route path="/admin/batches/:batchId" element={<BatchDetailPage />} />
+              <Route path="/admin/retailers" element={<RetailersPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

@@ -4,7 +4,7 @@ import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 import { useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/AppLayout";
 import { PageLoadingState } from "@/components/shared";
-import { Package, ArrowLeft } from "lucide-react";
+import { Package, ArrowLeft, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface AdminLayoutProps {
@@ -39,6 +39,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   const adminNavItems = [
     { title: "QR Batches", path: "/admin/batches", icon: Package },
+    { title: "Retailers", path: "/admin/retailers", icon: Store },
   ];
 
   const isActive = (path: string) => location.pathname.startsWith(path);
