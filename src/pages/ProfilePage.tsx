@@ -114,9 +114,8 @@ export default function ProfilePage() {
 
         if (updateError) throw updateError;
 
-        // Also sync to auth.users metadata & phone
+        // Sync name to auth.users metadata (phone is only stored in public.users)
         const { error: authUpdateError } = await supabase.auth.updateUser({
-          phone,
           data: { name },
         });
 
