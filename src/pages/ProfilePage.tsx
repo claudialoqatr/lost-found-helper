@@ -113,6 +113,17 @@ export default function ProfilePage() {
           .eq("auth_id", user.id);
 
         if (updateError) throw updateError;
+
+        // Also sync to auth.users metadata & phone
+        const { error: authUpdateError } = await supabase.auth.updateUser({
+          phone,
+          data: { name },
+        });
+
+        if (authUpdateError) {
+          console.warn("Auth metadata sync warning:", authUpdateError.message);
+          // Non-blocking — public.users is the source of truth
+        }
       }
 
       // Handle email change via Supabase Auth
@@ -215,12 +226,22 @@ export default function ProfilePage() {
                 <Phone className="h-3.5 w-3.5" />
                 Phone Number
               </Label>
-              <PhoneInput
-                value={phone}
-                onChange={setPhone}
-                placeholder="Phone number"
-                maxLength={20}
-              />
+              {userProfile?.phone ? (
+                <PhoneInput
+                  key={userProfile.phone}
+                  value={phone}
+                  onChange={setPhone}
+                  placeholder="Phone number"
+                  maxLength={20}
+                />
+              ) : (
+                <PhoneInput
+                  value={phone}
+                  onChange={setPhone}
+                  placeholder="Phone number"
+                  maxLength={20}
+                />
+              )}
               {errors.phone && (
                 <p className="text-sm text-destructive">{errors.phone}</p>
               )}
