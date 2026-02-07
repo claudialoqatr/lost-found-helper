@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Poppins&display=swap");
 
 @tailwind base;
@@ -64,7 +64,9 @@
     --sidebar-accent-foreground: 0 0% 11%;
     --sidebar-border: 0 0% 90%;
     --sidebar-ring: 210 100% 20%;
-    --font-sans: Poppins, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji;
+    --font-sans:
+      Poppins, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol,
+      Noto Color Emoji;
   }
 
   .dark {
@@ -77,7 +79,7 @@
     --popover: 0 0% 11%;
     --popover-foreground: 0 0% 98%;
 
-    --primary: 183 100% 45%;
+    --primary: 210 100% 20%;
     --primary-foreground: 0 0% 7%;
 
     --secondary: 0 0% 15%;
@@ -110,7 +112,9 @@
     --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 0 0% 20%;
     --sidebar-ring: 183 100% 45%;
-    --font-sans: Poppins, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji;
+    --font-sans:
+      Poppins, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol,
+      Noto Color Emoji;
   }
 }
 
@@ -123,7 +127,12 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply font-semibold tracking-tight;
   }
 }
@@ -141,16 +150,20 @@
   }
 
   .gradient-retailer {
-    background: linear-gradient(135deg,
+    background: linear-gradient(
+      135deg,
       var(--retailer-primary, hsl(var(--midnight))) 0%,
-      var(--retailer-accent, hsl(var(--egg-blue))) 100%);
+      var(--retailer-accent, hsl(var(--egg-blue))) 100%
+    );
     color: var(--retailer-primary-fg, white);
   }
 
   .gradient-retailer-text {
-    background: linear-gradient(135deg,
+    background: linear-gradient(
+      135deg,
       var(--retailer-primary, hsl(var(--midnight))) 0%,
-      var(--retailer-accent, hsl(var(--egg-blue))) 100%);
+      var(--retailer-accent, hsl(var(--egg-blue))) 100%
+    );
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
