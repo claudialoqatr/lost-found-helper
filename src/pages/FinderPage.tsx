@@ -65,7 +65,7 @@ export default function FinderPage() {
       </div>
 
       <div className="relative z-10">
-        <FinderHeader retailerLogoUrl={retailer?.partner_logo_url} />
+        <FinderHeader retailerLogoUrl={retailer?.partner_logo_url} partnerUrl={retailer?.partner_url} />
 
         {/* Main Content */}
         <main className="container mx-auto px-4 py-8 max-w-2xl">
