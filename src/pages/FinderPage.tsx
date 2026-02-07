@@ -86,8 +86,10 @@ export default function FinderPage() {
             </p>
           </div>
 
-          {/* Item Details Card */}
-          <ItemDetailsCard item={item} itemDetails={itemDetails} />
+          {/* Item Details Card - only show if there are details or a description */}
+          {(itemDetails.length > 0 || item?.description) && (
+            <ItemDetailsCard item={item} itemDetails={itemDetails} />
+          )}
 
           {/* Location Status */}
           {location.address && (
