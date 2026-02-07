@@ -311,30 +311,42 @@ export type Database = {
       }
       retailers: {
         Row: {
+          brand_color_accent: string | null
+          brand_color_primary: string | null
           contact_email: string | null
           contact_name: string | null
           contact_number: string | null
           created_at: string | null
           id: number
           name: string
+          partner_logo_url: string | null
+          partner_url: string | null
           updated_at: string | null
         }
         Insert: {
+          brand_color_accent?: string | null
+          brand_color_primary?: string | null
           contact_email?: string | null
           contact_name?: string | null
           contact_number?: string | null
           created_at?: string | null
           id?: number
           name: string
+          partner_logo_url?: string | null
+          partner_url?: string | null
           updated_at?: string | null
         }
         Update: {
+          brand_color_accent?: string | null
+          brand_color_primary?: string | null
           contact_email?: string | null
           contact_name?: string | null
           contact_number?: string | null
           created_at?: string | null
           id?: number
           name?: string
+          partner_logo_url?: string | null
+          partner_url?: string | null
           updated_at?: string | null
         }
         Relationships: []
