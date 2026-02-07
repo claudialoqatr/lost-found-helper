@@ -1,134 +1,237 @@
 
-# Fix Item Details Persistence - Final Resolution
+# Retailer White-Labeling Implementation
 
-## Problem Summary
-Even though the technical implementation details were applied (initializedItemId, updateDetailField, onFieldChange), item details are still not persisting correctly when the edit page is reopened. The data IS being saved to the database, but is not being loaded back properly.
+Full implementation of retailer-specific branding on the Found page, including database changes, data fetching, dynamic theming with contrast-safe text, and admin panel integration.
 
-## Root Cause Analysis
+---
 
-The issue is a **data reference equality problem** in the initialization logic:
+## Step 1: Database Migration
+
+Add `retailer_id` to the `qrcodes` table and update the `generate_qr_batch` function to propagate it to individual QR codes. Also add a public SELECT policy on `retailers` so unauthenticated finders can load branding data.
+
+```sql
+-- 1. Add retailer_id column to qrcodes
+ALTER TABLE public.qrcodes
+  ADD COLUMN retailer_id integer REFERENCES public.retailers(id);
+
+-- 2. Public read policy on retailers (for unauthenticated finder page)
+CREATE POLICY "Anyone can read retailers"
+  ON public.retailers FOR SELECT
+  USING (true);
+
+-- 3. Update generate_qr_batch to set retailer_id on each QR code
+CREATE OR REPLACE FUNCTION public.generate_qr_batch(
+  batch_size integer,
+  batch_notes text DEFAULT NULL,
+  p_retailer_id integer DEFAULT NULL
+)
+RETURNS TABLE(batch_id integer, loqatr_ids text[])
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  new_batch_id integer;
+  generated_ids text[] := '{}';
+  i integer;
+  j integer;
+  unique_id text;
+  chars text := 'abcdefghijklmnopqrstuvwxyz0123456789';
+BEGIN
+  IF NOT is_super_admin() THEN
+    RAISE EXCEPTION 'Unauthorized: Super admin access required';
+  END IF;
+
+  INSERT INTO qrcode_batches (
+    rand_value, retailer_id, staff_id, notes, status
+  ) VALUES (
+    random(), p_retailer_id, get_user_id(), batch_notes, 'pending'
+  ) RETURNING id INTO new_batch_id;
+
+  FOR i IN 1..batch_size LOOP
+    unique_id := '';
+    FOR j IN 1..6 LOOP
+      unique_id := unique_id || substr(chars, floor(random() * 36 + 1)::int, 1);
+    END LOOP;
+
+    INSERT INTO qrcodes (loqatr_id, batch_id, status, retailer_id)
+    VALUES ('LOQ-' || new_batch_id || '-' || unique_id, new_batch_id, 'unassigned', p_retailer_id);
+
+    generated_ids := array_append(generated_ids, 'LOQ-' || new_batch_id || '-' || unique_id);
+  END LOOP;
+
+  UPDATE qrcode_batches SET status = 'active' WHERE id = new_batch_id;
+
+  RETURN QUERY SELECT new_batch_id, generated_ids;
+END;
+$$;
+```
+
+---
+
+## Step 2: Type Updates (`src/types/index.ts`)
+
+- Add `retailer_id?: number | null` to `QRCodeData`
+- Add new `RetailerBranding` interface
 
 ```typescript
-// In useEditTagData.ts, line 137:
-if (initializedItemId === item.id) return;
+export interface RetailerBranding {
+  name: string;
+  brand_color_primary: string | null;
+  brand_color_accent: string | null;
+  partner_logo_url: string | null;
+  partner_url: string | null;
+}
 ```
 
-This check happens BEFORE `fetchedDetails` (the item details from the database) are evaluated. The problem is:
+---
 
-1. First render: `item.id = 161`, `fetchedDetails = []` (empty from cache)
-2. Form initializes with empty details, sets `initializedItemId = 161`
-3. Fresh data arrives: `item.id = 161`, `fetchedDetails = [{Age: 12}, {Owner: Sarah}]`
-4. Check runs: `initializedItemId (161) === item.id (161)` → **RETURNS EARLY**
-5. Fresh details are NEVER loaded into form state
+## Step 3: Contrast Utility (`src/lib/utils.ts`)
 
-The guard only checks `item.id`, but when cached and fresh data have the same item ID but DIFFERENT item details, the fresh details are ignored.
-
-## Solution
-
-The initialization guard must ALSO consider whether the fetched details have changed. This can be done by:
-
-1. **Adding a data fingerprint check** - Compare a hash of the fetched details to detect when fresh data differs from what was used to initialize
-
-2. **Or tracking the fetched details reference** - Since React Query returns new array references when data changes, we can detect this
-
-### Recommended Approach: Track fetchedDetails Length
-
-Add an additional check that compares the current form state against what's being fetched. If the fetched details are different and haven't been applied, re-initialize:
-
-```text
-File: src/hooks/useEditTagData.ts
-
-Change the initialization effect to:
-1. Keep the initializedItemId check for basic item identity
-2. Add a secondary check: if fetchedDetails has data but local itemDetails is empty, 
-   AND we're not currently saving, re-sync the form state
-
-OR more robustly:
-3. Store a "dataVersion" or "lastFetchedAt" timestamp that changes when React Query 
-   refreshes, and use that in the dependency check
-```
-
-## Files to Modify
-
-### 1. src/hooks/useEditTagData.ts
-
-**Current code (lines 133-137):**
-```typescript
-// Verify ownership and initialize form when data loads
-useEffect(() => {
-  if (qrLoading || !qrCode || !item) return;
-  
-  // Skip if already initialized for this specific item
-  if (initializedItemId === item.id) return;
-```
-
-**Updated code:**
-```typescript
-// Verify ownership and initialize form when data loads
-useEffect(() => {
-  if (qrLoading || !qrCode || !item) return;
-  
-  // Skip if already initialized for this specific item AND we have the same data
-  // The fetchedDetails array reference changes when React Query fetches fresh data
-  // So we need to re-initialize when fetchedDetails changes, even for the same item
-  if (initializedItemId === item.id && fetchedDetails.length === itemDetails.length) {
-    // Additional check: if we have fetched data but empty local state, something is wrong
-    if (fetchedDetails.length > 0 || itemDetails.length > 0) {
-      return;
-    }
-  }
-```
-
-This adds a safety check: if we fetched details from the server but our local state is empty, we should re-initialize even if the item ID matches.
-
-### Alternative Approach (More Robust)
-
-Track a "data hash" to detect when fresh data arrives:
+Add `getContrastColor` function that uses ITU-R BT.709 luminance formula to return either white or dark text color based on the brightness of a given hex color.
 
 ```typescript
-// Add state to track what data was used for initialization
-const [initializedDataHash, setInitializedDataHash] = useState<string>("");
-
-// Create a hash of the fetched details
-const dataHash = useMemo(() => {
-  return JSON.stringify(fetchedDetails.map(d => ({ field_id: d.field_id, value: d.value })));
-}, [fetchedDetails]);
-
-// In the effect
-useEffect(() => {
-  if (qrLoading || !qrCode || !item) return;
-  
-  // Skip if already initialized with this exact data
-  if (initializedItemId === item.id && initializedDataHash === dataHash) return;
-  
-  // ... initialization code ...
-  
-  setInitializedItemId(item.id);
-  setInitializedDataHash(dataHash);
-}, [/* deps including dataHash */]);
+export function getContrastColor(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  return luminance > 0.5 ? "#1C1C1C" : "#ffffff";
+}
 ```
 
-## Expected Outcome
+---
 
-After this fix:
-- When navigating to the edit page, item details will load correctly from the database
-- The "This is not my item" toggle will reflect the saved state (on if owner name exists)
-- Item owner name will be displayed in the dedicated field
-- Saving and returning to the page will show all previously saved details
-- The cache invalidation after save will trigger a fresh fetch that properly re-initializes the form
+## Step 4: CSS Utility Classes (`src/index.css`)
 
-## Technical Details
+Add two new utility classes alongside the existing `gradient-loqatr` ones:
 
-### Why the current code fails:
+```css
+.gradient-retailer {
+  background: linear-gradient(135deg,
+    var(--retailer-primary, hsl(var(--midnight))) 0%,
+    var(--retailer-accent, hsl(var(--egg-blue))) 100%);
+  color: var(--retailer-primary-fg, white);
+}
 
-1. **TanStack Query caching**: Returns cached (possibly empty) data immediately
-2. **Same item ID**: `initializedItemId === item.id` passes even with stale data
-3. **No data comparison**: The guard doesn't check if the actual details data has changed
-4. **Premature exit**: The effect returns early, never applying fresh data to form state
+.gradient-retailer-text {
+  background: linear-gradient(135deg,
+    var(--retailer-primary, hsl(var(--midnight))) 0%,
+    var(--retailer-accent, hsl(var(--egg-blue))) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+```
 
-### Why the fix works:
+When no retailer CSS variables are set, these fall back to the default LOQATR colors automatically.
 
-1. **Data-aware guard**: Checks both item identity AND data content
-2. **Handles cache refresh**: When React Query fetches fresh data, the hash/length changes
-3. **Re-initializes form**: Fresh details are properly copied to form state
-4. **Preserves user edits**: Once initialized, subsequent fetches don't overwrite user changes (as long as data matches)
+---
+
+## Step 5: Data Fetching (`src/hooks/useFinderPageData.ts`)
+
+After fetching the QR code data, resolve the retailer:
+
+1. Check `qrData.retailer_id` (per-QR-code override)
+2. If null, fall back to `qrcode_batches.retailer_id` via `qrData.batch_id`
+3. Fetch retailer record from `retailers` table (name, colors, logo, url)
+4. Add `retailer: RetailerBranding | null` to the return value
+
+The fetch logic will look like:
+```typescript
+// Resolve retailer_id: QR-level override > batch-level
+let retailerId = qrData.retailer_id || null;
+if (!retailerId && qrData.batch_id) {
+  const { data: batchData } = await supabase
+    .from("qrcode_batches")
+    .select("retailer_id")
+    .eq("id", qrData.batch_id)
+    .maybeSingle();
+  retailerId = batchData?.retailer_id || null;
+}
+
+if (retailerId) {
+  const { data: retailerData } = await supabase
+    .from("retailers")
+    .select("name, brand_color_primary, brand_color_accent, partner_logo_url, partner_url")
+    .eq("id", retailerId)
+    .maybeSingle();
+  if (retailerData) setRetailer(retailerData);
+}
+```
+
+---
+
+## Step 6: FinderPage.tsx -- Dynamic Theming
+
+- Extract `retailer` from the hook
+- Compute CSS custom properties using `getContrastColor`:
+
+```typescript
+const retailerStyle = retailer?.brand_color_primary ? {
+  '--retailer-primary': retailer.brand_color_primary,
+  '--retailer-accent': retailer.brand_color_accent || retailer.brand_color_primary,
+  '--retailer-primary-fg': getContrastColor(retailer.brand_color_primary),
+  '--retailer-accent-fg': retailer.brand_color_accent
+    ? getContrastColor(retailer.brand_color_accent)
+    : getContrastColor(retailer.brand_color_primary),
+} as React.CSSProperties : {};
+```
+
+- Apply `style={retailerStyle}` to the page wrapper div
+- Replace `gradient-loqatr` with `gradient-retailer` on the background blob
+- Replace `gradient-loqatr-text` with `gradient-retailer-text` on the hero heading
+- Pass `retailerLogoUrl` to `FinderHeader`
+
+---
+
+## Step 7: FinderHeader.tsx -- Retailer Logo
+
+- Accept optional `retailerLogoUrl?: string | null` prop
+- If provided, display the retailer logo instead of the LOQATR logo
+- Otherwise, keep the existing light/dark LOQATR logo behavior
+
+---
+
+## Step 8: ContactRevealGate.tsx and PrivateMessageForm.tsx -- Branded Buttons
+
+Replace `gradient-loqatr text-primary-foreground` with `gradient-retailer` on the primary action buttons. The `color` property in the CSS class handles foreground contrast automatically.
+
+---
+
+## Step 9: Admin Panel -- Retailer Selection
+
+### CreateBatchDialog.tsx
+- Add a searchable retailer dropdown (fetched from `retailers` table via a simple query)
+- Update the `onCreateBatch` callback signature to include optional `retailerId`
+- Pass the selected retailer through on submit
+
+### BatchesPage.tsx
+- Update `handleCreateBatch` to accept and forward `retailerId`
+
+### useBatches.ts
+- Update the `generateBatch` mutation to accept `retailerId` and pass it as `p_retailer_id` to the RPC (currently hardcoded to `null`)
+
+### BatchesTable.tsx
+- Add a "Retailer" column displaying the retailer name
+- Fetch retailer names alongside batch data (join via `retailer_id`)
+
+---
+
+## Files Changed Summary
+
+| File | Change |
+|---|---|
+| New migration SQL | Add `retailer_id` to `qrcodes`, update `generate_qr_batch`, add public RLS on `retailers` |
+| `src/types/index.ts` | Add `RetailerBranding` interface, add `retailer_id` to `QRCodeData` |
+| `src/lib/utils.ts` | Add `getContrastColor` utility |
+| `src/index.css` | Add `.gradient-retailer` and `.gradient-retailer-text` utilities |
+| `src/hooks/useFinderPageData.ts` | Fetch and return retailer branding data with fallback logic |
+| `src/pages/FinderPage.tsx` | Apply dynamic CSS variables, use retailer gradient classes, pass logo to header |
+| `src/components/finder/FinderHeader.tsx` | Accept and render optional retailer logo |
+| `src/components/finder/ContactRevealGate.tsx` | Replace `gradient-loqatr` with `gradient-retailer` |
+| `src/components/finder/PrivateMessageForm.tsx` | Replace `gradient-loqatr` with `gradient-retailer` |
+| `src/components/admin/CreateBatchDialog.tsx` | Add retailer dropdown |
+| `src/pages/admin/BatchesPage.tsx` | Forward retailer ID |
+| `src/hooks/useBatches.ts` | Accept retailer ID in mutation |
+| `src/components/admin/BatchesTable.tsx` | Display retailer name column |
