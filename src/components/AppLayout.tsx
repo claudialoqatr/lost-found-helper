@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Menu, Tag, MessageSquare, Bell, LogOut, Sun, Moon, Package, Scan, CheckCheck, Shield } from "lucide-react";
+import { Menu, Tag, MessageSquare, Bell, LogOut, Sun, Moon, Package, Scan, CheckCheck, Shield, User } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import logoDark from "@/assets/logo-dark.svg";
 import logoLight from "@/assets/logo-light.svg";
@@ -92,6 +92,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const navItems = [
     { title: "My Tags", path: "/my-tags", icon: Tag },
     { title: "Messages", path: "/messages", icon: MessageSquare },
+    { title: "My Profile", path: "/profile", icon: User },
     ...(isSuperAdmin ? [{ title: "Admin", path: "/admin/batches", icon: Shield }] : []),
   ];
 
@@ -155,9 +156,9 @@ export function AppLayout({ children }: AppLayoutProps) {
                 className="h-16 md:h-20 w-auto"
               />
             </Link>
-            <span className="text-lg md:text-xl font-medium hidden sm:inline">
+            <Link to="/profile" className="text-lg md:text-xl font-medium hidden sm:inline hover:text-accent transition-colors">
               Hey, {getUserDisplayName()}!
-            </span>
+            </Link>
           </div>
 
           {/* Right: Actions */}

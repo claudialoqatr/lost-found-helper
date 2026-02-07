@@ -13,6 +13,7 @@ import EditTagPage from "./pages/EditTagPage";
 import FinderPage from "./pages/FinderPage";
 import MyTagsPage from "./pages/MyTagsPage";
 import MessagesPage from "./pages/MessagesPage";
+import ProfilePage from "./pages/ProfilePage";
 import BatchesPage from "./pages/admin/BatchesPage";
 import BatchDetailPage from "./pages/admin/BatchDetailPage";
 import RetailersPage from "./pages/admin/RetailersPage";
@@ -37,6 +38,7 @@ const App = () => (
               <Route path="/my-tags" element={<MyTagsPage />} />
               <Route path="/my-tags/:code" element={<EditTagPage />} />
               <Route path="/messages" element={<MessagesPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
               {/* Admin Routes */}
               <Route path="/admin/batches" element={<BatchesPage />} />
               <Route path="/admin/batches/:batchId" element={<BatchDetailPage />} />
