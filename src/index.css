@@ -88,8 +88,9 @@
     --muted: 0 0% 15%;
     --muted-foreground: 0 0% 60%;
 
-    --accent: 210 100% 20%;
-    --accent-foreground: 0 0% 98%;
+    /* CHANGE THIS: From Midnight Blue (210 100% 20%) to Egg Blue */
+    --accent: 183 100% 45%;
+    --accent-foreground: 0 0% 7%; /* Updated to remain readable on light blue */
 
     --destructive: 0 62% 30%;
     --destructive-foreground: 0 0% 98%;
@@ -108,8 +109,8 @@
     --sidebar-foreground: 0 0% 98%;
     --sidebar-primary: 183 100% 45%;
     --sidebar-primary-foreground: 0 0% 7%;
-    --sidebar-accent: 210 100% 20%;
-    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-accent: 183 100% 45%; /* Also update sidebar icons/tags */
+    --sidebar-accent-foreground: 0 0% 7%;
     --sidebar-border: 0 0% 20%;
     --sidebar-ring: 183 100% 45%;
     --font-sans:
