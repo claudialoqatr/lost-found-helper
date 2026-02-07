@@ -42,7 +42,7 @@ export function FinderHeader({ retailerLogoUrl, partnerUrl }: FinderHeaderProps)
         ) : (
           <Link to="/my-tags">{logoImg}</Link>
         )}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           {!user && (
             <>
               <Button variant="outline" size="sm" onClick={() => navigate("/auth")}>
