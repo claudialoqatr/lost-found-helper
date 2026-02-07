@@ -243,6 +243,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "qrcode_batches_retailer_id_fkey"
+            columns: ["retailer_id"]
+            isOneToOne: false
+            referencedRelation: "retailers_branding"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "qrcode_batches_staff_id_fkey"
             columns: ["staff_id"]
             isOneToOne: false
@@ -315,6 +322,13 @@ export type Database = {
             columns: ["retailer_id"]
             isOneToOne: false
             referencedRelation: "retailers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qrcodes_retailer_id_fkey"
+            columns: ["retailer_id"]
+            isOneToOne: false
+            referencedRelation: "retailers_branding"
             referencedColumns: ["id"]
           },
         ]
@@ -491,7 +505,33 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      retailers_branding: {
+        Row: {
+          brand_color_accent: string | null
+          brand_color_primary: string | null
+          id: number | null
+          name: string | null
+          partner_logo_url: string | null
+          partner_url: string | null
+        }
+        Insert: {
+          brand_color_accent?: string | null
+          brand_color_primary?: string | null
+          id?: number | null
+          name?: string | null
+          partner_logo_url?: string | null
+          partner_url?: string | null
+        }
+        Update: {
+          brand_color_accent?: string | null
+          brand_color_primary?: string | null
+          id?: number | null
+          name?: string | null
+          partner_logo_url?: string | null
+          partner_url?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       generate_qr_batch: {

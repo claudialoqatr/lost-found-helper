@@ -109,14 +109,16 @@ export function useFinderPageData({
     }
 
     if (retailerId) {
-      const { data: retailerData } = await supabase
-        .from("retailers")
+      // Query the secure branding view (excludes sensitive contact info)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: retailerData } = await (supabase as any)
+        .from("retailers_branding")
         .select("name, brand_color_primary, brand_color_accent, partner_logo_url, partner_url")
         .eq("id", retailerId)
         .maybeSingle();
 
       if (retailerData) {
-        setRetailer(retailerData);
+        setRetailer(retailerData as RetailerBranding);
       }
     }
   }, []);
