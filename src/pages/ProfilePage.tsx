@@ -225,22 +225,13 @@ export default function ProfilePage() {
                 <Phone className="h-3.5 w-3.5" />
                 Phone Number
               </Label>
-              {userProfile?.phone ? (
-                <PhoneInput
-                  key={userProfile.phone}
-                  value={phone}
-                  onChange={setPhone}
-                  placeholder="Phone number"
-                  maxLength={20}
-                />
-              ) : (
-                <PhoneInput
-                  value={phone}
-                  onChange={setPhone}
-                  placeholder="Phone number"
-                  maxLength={20}
-                />
-              )}
+              <PhoneInput
+                key={userProfile?.phone || "new-phone"}
+                value={phone}
+                onChange={setPhone}
+                placeholder="Phone number"
+                maxLength={20}
+              />
               {errors.phone && (
                 <p className="text-sm text-destructive">{errors.phone}</p>
               )}
