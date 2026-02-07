@@ -139,4 +139,20 @@
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
+
+  .gradient-retailer {
+    background: linear-gradient(135deg,
+      var(--retailer-primary, hsl(var(--midnight))) 0%,
+      var(--retailer-accent, hsl(var(--egg-blue))) 100%);
+    color: var(--retailer-primary-fg, white);
+  }
+
+  .gradient-retailer-text {
+    background: linear-gradient(135deg,
+      var(--retailer-primary, hsl(var(--midnight))) 0%,
+      var(--retailer-accent, hsl(var(--egg-blue))) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
 }

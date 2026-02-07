@@ -199,7 +199,7 @@ export function PrivateMessageForm({ item, qrCode, locationAddress }: PrivateMes
 
               <Button
                 type="submit"
-                className="w-full gradient-loqatr text-primary-foreground h-12"
+                className="w-full gradient-retailer h-12 font-semibold"
                 disabled={sending}
               >
                 {sending ? (

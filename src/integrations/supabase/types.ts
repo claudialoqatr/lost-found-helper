@@ -260,6 +260,7 @@ export type Database = {
           is_public: boolean
           item_id: number | null
           loqatr_id: string
+          retailer_id: number | null
           status: Database["public"]["Enums"]["qr_code_status"]
           updated_at: string | null
         }
@@ -271,6 +272,7 @@ export type Database = {
           is_public?: boolean
           item_id?: number | null
           loqatr_id: string
+          retailer_id?: number | null
           status?: Database["public"]["Enums"]["qr_code_status"]
           updated_at?: string | null
         }
@@ -282,6 +284,7 @@ export type Database = {
           is_public?: boolean
           item_id?: number | null
           loqatr_id?: string
+          retailer_id?: number | null
           status?: Database["public"]["Enums"]["qr_code_status"]
           updated_at?: string | null
         }
@@ -305,6 +308,13 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qrcodes_retailer_id_fkey"
+            columns: ["retailer_id"]
+            isOneToOne: false
+            referencedRelation: "retailers"
             referencedColumns: ["id"]
           },
         ]

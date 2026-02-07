@@ -19,7 +19,7 @@ interface BatchesTableProps {
 }
 
 /**
- * Table component for displaying QR code batches
+ * Table component for displaying QR code batches with retailer info
  */
 export function BatchesTable({ batches, onMarkPrinted }: BatchesTableProps) {
   const getStatusBadge = (batch: QRCodeBatch) => {
@@ -47,6 +47,7 @@ export function BatchesTable({ batches, onMarkPrinted }: BatchesTableProps) {
             <TableHead className="w-24">Total QRs</TableHead>
             <TableHead className="w-24">Assigned</TableHead>
             <TableHead>Status</TableHead>
+            <TableHead>Retailer</TableHead>
             <TableHead>Notes</TableHead>
             <TableHead>Created</TableHead>
             <TableHead className="text-right">Actions</TableHead>
@@ -55,7 +56,7 @@ export function BatchesTable({ batches, onMarkPrinted }: BatchesTableProps) {
         <TableBody>
           {batches.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+              <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                 No batches yet. Create your first batch to get started.
               </TableCell>
             </TableRow>
@@ -66,6 +67,13 @@ export function BatchesTable({ batches, onMarkPrinted }: BatchesTableProps) {
                 <TableCell>{batch.qrcode_count || 0}</TableCell>
                 <TableCell>{batch.assigned_count || 0}</TableCell>
                 <TableCell>{getStatusBadge(batch)}</TableCell>
+                <TableCell>
+                  {batch.retailer_name ? (
+                    <Badge variant="outline">{batch.retailer_name}</Badge>
+                  ) : (
+                    <span className="text-muted-foreground text-sm">LOQATR</span>
+                  )}
+                </TableCell>
                 <TableCell className="max-w-xs truncate">
                   {batch.notes || <span className="text-muted-foreground">—</span>}
                 </TableCell>
@@ -93,7 +101,7 @@ export function BatchesTable({ batches, onMarkPrinted }: BatchesTableProps) {
                       </Button>
                     )}
                     {batch.is_printed && (
-                      <Check className="h-4 w-4 text-green-500" />
+                      <Check className="h-4 w-4 text-success" />
                     )}
                   </div>
                 </TableCell>

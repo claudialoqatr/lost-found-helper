@@ -12,6 +12,7 @@ import {
   PublicContactOptions,
 } from "@/components/finder";
 import type { RevealedContact } from "@/types";
+import { getContrastColor } from "@/lib/utils";
 
 export default function FinderPage() {
   const { code } = useParams<{ code: string }>();
@@ -22,7 +23,7 @@ export default function FinderPage() {
   const isScan = searchParams.get("scan") === "true";
 
   // Data fetching and routing (no location blocking)
-  const { loading, qrCode, item, itemDetails, currentScanId, setQRCode, getDisplayOwnerName } = useFinderPageData({
+  const { loading, qrCode, item, itemDetails, currentScanId, retailer, setQRCode, getDisplayOwnerName } = useFinderPageData({
     code,
     user,
     isScan,
@@ -44,15 +45,27 @@ export default function FinderPage() {
 
   const displayOwnerName = getDisplayOwnerName(revealedContact);
 
+  // Compute dynamic retailer CSS variables with contrast-safe foreground colors
+  const retailerStyle = retailer?.brand_color_primary
+    ? ({
+        "--retailer-primary": retailer.brand_color_primary,
+        "--retailer-accent": retailer.brand_color_accent || retailer.brand_color_primary,
+        "--retailer-primary-fg": getContrastColor(retailer.brand_color_primary),
+        "--retailer-accent-fg": retailer.brand_color_accent
+          ? getContrastColor(retailer.brand_color_accent)
+          : getContrastColor(retailer.brand_color_primary),
+      } as React.CSSProperties)
+    : {};
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background" style={retailerStyle}>
       {/* Gradient background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-1/2 -right-1/2 w-full h-full gradient-loqatr opacity-5 rounded-full blur-3xl" />
+        <div className="absolute -top-1/2 -right-1/2 w-full h-full gradient-retailer opacity-5 rounded-full blur-3xl" />
       </div>
 
       <div className="relative z-10">
-        <FinderHeader />
+        <FinderHeader retailerLogoUrl={retailer?.partner_logo_url} />
 
         {/* Main Content */}
         <main className="container mx-auto px-4 py-8 max-w-2xl">
@@ -60,7 +73,7 @@ export default function FinderPage() {
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold mb-3">
               You have found{" "}
-              <span className="gradient-loqatr-text">
+              <span className="gradient-retailer-text">
                 {qrCode?.is_public ? `${displayOwnerName}'s` : "Someone's"}
               </span>{" "}
               {item?.name || "Item"}!
