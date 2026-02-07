@@ -44,18 +44,13 @@ export function FinderHeader({ retailerLogoUrl, partnerUrl }: FinderHeaderProps)
         )}
         <div className="flex items-center gap-2 flex-shrink-0">
           {!user && (
-            <>
-              <Button variant="outline" size="sm" onClick={() => navigate("/auth")}>
-                Sign in
-              </Button>
-              <Button
-                size="sm"
-                className="gradient-retailer font-semibold"
-                onClick={() => navigate("/auth")}
-              >
-                Sign up
-              </Button>
-            </>
+            <Button
+              size="sm"
+              className="gradient-retailer font-semibold"
+              onClick={() => navigate("/auth")}
+            >
+              Sign in
+            </Button>
           )}
         </div>
       </div>
