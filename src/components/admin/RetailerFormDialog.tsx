@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -35,19 +35,21 @@ export function RetailerFormDialog({
   const isEditing = !!retailer;
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [name, setName] = useState(retailer?.name || "");
-  const [contactName, setContactName] = useState(retailer?.contact_name || "");
-  const [contactEmail, setContactEmail] = useState(retailer?.contact_email || "");
-  const [contactNumber, setContactNumber] = useState(retailer?.contact_number || "");
-  const [partnerUrl, setPartnerUrl] = useState(retailer?.partner_url || "");
-  const [brandColorPrimary, setBrandColorPrimary] = useState(retailer?.brand_color_primary || "#3b82f6");
-  const [brandColorAccent, setBrandColorAccent] = useState(retailer?.brand_color_accent || "#60a5fa");
-  const [logoPreview, setLogoPreview] = useState<string | null>(retailer?.partner_logo_url || null);
+  const [name, setName] = useState("");
+  const [contactName, setContactName] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactNumber, setContactNumber] = useState("");
+  const [partnerUrl, setPartnerUrl] = useState("");
+  const [brandColorPrimary, setBrandColorPrimary] = useState("#3b82f6");
+  const [brandColorAccent, setBrandColorAccent] = useState("#60a5fa");
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
 
-  // Reset form when dialog opens with new data
-  const handleOpenChange = (isOpen: boolean) => {
-    if (isOpen && retailer) {
+  // Sync form state whenever the dialog opens or the retailer prop changes
+  useEffect(() => {
+    if (!open) return;
+
+    if (retailer) {
       setName(retailer.name);
       setContactName(retailer.contact_name || "");
       setContactEmail(retailer.contact_email || "");
@@ -56,8 +58,7 @@ export function RetailerFormDialog({
       setBrandColorPrimary(retailer.brand_color_primary || "#3b82f6");
       setBrandColorAccent(retailer.brand_color_accent || "#60a5fa");
       setLogoPreview(retailer.partner_logo_url || null);
-      setLogoFile(null);
-    } else if (isOpen && !retailer) {
+    } else {
       setName("");
       setContactName("");
       setContactEmail("");
@@ -66,10 +67,10 @@ export function RetailerFormDialog({
       setBrandColorPrimary("#3b82f6");
       setBrandColorAccent("#60a5fa");
       setLogoPreview(null);
-      setLogoFile(null);
     }
-    onOpenChange(isOpen);
-  };
+    setLogoFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, [open, retailer]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -111,7 +112,7 @@ export function RetailerFormDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
@@ -284,7 +285,7 @@ export function RetailerFormDialog({
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting || !name.trim()}>
