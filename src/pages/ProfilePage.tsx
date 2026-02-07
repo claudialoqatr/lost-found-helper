@@ -44,6 +44,7 @@ export default function ProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [emailPending, setEmailPending] = useState(false);
+  const [formInitialized, setFormInitialized] = useState(false);
 
   // Auth guard
   useEffect(() => {
@@ -52,21 +53,24 @@ export default function ProfilePage() {
     }
   }, [user, authLoading, navigate]);
 
-  // Populate form when profile loads
+  // Populate form -- runs once when profile data is ready
   useEffect(() => {
-    if (userProfile) {
+    if (userProfile && !formInitialized) {
+      console.log("Profile data fetched:", userProfile);
+      console.log("Setting phone state to:", userProfile.phone);
       setName(userProfile.name || "");
       setPhone(userProfile.phone || "");
       setEmail(userProfile.email || "");
+      setFormInitialized(true);
     }
-  }, [userProfile]);
+  }, [userProfile, formInitialized]);
 
-  // Detect pending email change from auth metadata
+  // Detect pending email change -- only after form is initialized
   useEffect(() => {
-    if (user?.new_email) {
+    if (formInitialized && user?.new_email) {
       setEmailPending(true);
     }
-  }, [user]);
+  }, [user, formInitialized]);
 
   const hasChanges = useMemo(() => {
     if (!userProfile) return false;
@@ -225,13 +229,17 @@ export default function ProfilePage() {
                 <Phone className="h-3.5 w-3.5" />
                 Phone Number
               </Label>
-              <PhoneInput
-                key={userProfile?.phone || "new-phone"}
-                value={phone}
-                onChange={setPhone}
-                placeholder="Phone number"
-                maxLength={20}
-              />
+              {formInitialized ? (
+                <PhoneInput
+                  key={phone || "empty"}
+                  value={phone}
+                  onChange={setPhone}
+                  placeholder="Phone number"
+                  maxLength={20}
+                />
+              ) : (
+                <Input disabled placeholder="Loading..." />
+              )}
               {errors.phone && (
                 <p className="text-sm text-destructive">{errors.phone}</p>
               )}
