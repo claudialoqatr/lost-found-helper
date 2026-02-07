@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { notifyTagScanned } from "@/lib/notifications";
-import type { ItemInfo, QRCodeData, RevealedContact } from "@/types";
+import type { ItemInfo, QRCodeData, RevealedContact, RetailerBranding } from "@/types";
 import type { User } from "@supabase/supabase-js";
 
 export interface ItemDetailDisplay {
@@ -24,13 +24,14 @@ interface UseFinderPageDataReturn {
   itemDetails: ItemDetailDisplay[];
   ownerFirstName: string | null;
   currentScanId: number | null;
+  retailer: RetailerBranding | null;
   setQRCode: React.Dispatch<React.SetStateAction<QRCodeData | null>>;
   getDisplayOwnerName: (revealedContact?: RevealedContact | null) => string;
 }
 
 /**
  * Hook to handle all data fetching and routing logic for the finder page.
- * Fetches QR code, item details, and owner information.
+ * Fetches QR code, item details, owner information, and retailer branding.
  * Handles redirects for unclaimed tags and owner scans.
  */
 export function useFinderPageData({
@@ -47,6 +48,7 @@ export function useFinderPageData({
   const [itemDetails, setItemDetails] = useState<ItemDetailDisplay[]>([]);
   const [ownerFirstName, setOwnerFirstName] = useState<string | null>(null);
   const [currentScanId, setCurrentScanId] = useState<number | null>(null);
+  const [retailer, setRetailer] = useState<RetailerBranding | null>(null);
 
   // Track whether we've already logged this scan to prevent duplicates
   const scanLoggedRef = useRef(false);
@@ -90,6 +92,35 @@ export function useFinderPageData({
     []
   );
 
+  /**
+   * Resolve retailer branding: QR-level override > batch-level fallback
+   */
+  const resolveRetailer = useCallback(async (qrData: QRCodeData) => {
+    let retailerId = qrData.retailer_id || null;
+
+    // Fallback to batch-level retailer
+    if (!retailerId && qrData.batch_id) {
+      const { data: batchData } = await supabase
+        .from("qrcode_batches")
+        .select("retailer_id")
+        .eq("id", qrData.batch_id)
+        .maybeSingle();
+      retailerId = batchData?.retailer_id || null;
+    }
+
+    if (retailerId) {
+      const { data: retailerData } = await supabase
+        .from("retailers")
+        .select("name, brand_color_primary, brand_color_accent, partner_logo_url, partner_url")
+        .eq("id", retailerId)
+        .maybeSingle();
+
+      if (retailerData) {
+        setRetailer(retailerData);
+      }
+    }
+  }, []);
+
   const fetchData = useCallback(async () => {
     if (!code) return;
 
@@ -115,6 +146,9 @@ export function useFinderPageData({
       }
 
       setQRCode(qrData);
+
+      // Resolve retailer branding (non-blocking for page render)
+      resolveRetailer(qrData);
 
       // If not claimed (no owner or explicitly unassigned), redirect to claim page
       if (!qrData.assigned_to || qrData.status === "unassigned" || qrData.status === "retired") {
@@ -187,7 +221,7 @@ export function useFinderPageData({
     } finally {
       setLoading(false);
     }
-  }, [code, user, navigate, toast]);
+  }, [code, user, navigate, toast, resolveRetailer]);
 
   useEffect(() => {
     fetchData();
@@ -227,6 +261,7 @@ export function useFinderPageData({
     itemDetails,
     ownerFirstName,
     currentScanId,
+    retailer,
     setQRCode,
     getDisplayOwnerName,
   };

@@ -138,7 +138,7 @@ export function ContactRevealGate({
           )}
 
           <Button
-            className="w-full gradient-loqatr text-primary-foreground h-12"
+            className="w-full gradient-retailer h-12 font-semibold"
             onClick={handleRevealContact}
             disabled={!turnstileToken || revealing}
           >

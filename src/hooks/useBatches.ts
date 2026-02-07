@@ -20,18 +20,17 @@ export function useBatches() {
   } = useQuery({
     queryKey: ["batches"],
     queryFn: async () => {
-      // Fetch batches
+      // Fetch batches with retailer name via join
       const { data: batchData, error: batchError } = await supabase
         .from("qrcode_batches")
-        .select("*")
+        .select("*, retailers(name)")
         .order("created_at", { ascending: false });
 
       if (batchError) throw batchError;
 
       if (!batchData || batchData.length === 0) return [];
 
-      // Fetch counts per batch - need to query each batch to avoid row limits
-      // Using Promise.all for parallel fetching
+      // Fetch counts per batch using Promise.all for parallel fetching
       const countsPromises = batchData.map(async (batch) => {
         const { count: totalCount } = await supabase
           .from("qrcodes")
@@ -61,11 +60,12 @@ export function useBatches() {
         assignedCountMap.set(batchId, assignedCount);
       });
 
-      // Merge counts into batches
+      // Merge counts and retailer names into batches
       const batchesWithCounts: QRCodeBatch[] = batchData.map((batch) => ({
         ...batch,
         qrcode_count: totalCountMap.get(batch.id) || 0,
         assigned_count: assignedCountMap.get(batch.id) || 0,
+        retailer_name: (batch.retailers as any)?.name || null,
       }));
 
       return batchesWithCounts;
@@ -77,14 +77,16 @@ export function useBatches() {
     mutationFn: async ({
       batchSize,
       notes,
+      retailerId,
     }: {
       batchSize: number;
       notes?: string;
+      retailerId?: number;
     }) => {
       const { data, error } = await supabase.rpc("generate_qr_batch", {
         batch_size: batchSize,
         batch_notes: notes || null,
-        p_retailer_id: null,
+        p_retailer_id: retailerId || null,
       });
 
       if (error) throw error;

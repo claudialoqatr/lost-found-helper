@@ -25,6 +25,7 @@ export interface QRCodeData {
   assigned_to: number | null;
   status: string;
   batch_id?: number | null;
+  retailer_id?: number | null;
   created_at?: string | null;
   updated_at?: string | null;
 }
@@ -118,4 +119,20 @@ export interface QRCodeBatch {
   updated_at: string | null;
   qrcode_count?: number;
   assigned_count?: number;
+  retailer_name?: string | null;
+}
+
+// ============ Retailer Types ============
+
+export interface RetailerBranding {
+  name: string;
+  brand_color_primary: string | null;
+  brand_color_accent: string | null;
+  partner_logo_url: string | null;
+  partner_url: string | null;
+}
+
+export interface RetailerOption {
+  id: number;
+  name: string;
 }

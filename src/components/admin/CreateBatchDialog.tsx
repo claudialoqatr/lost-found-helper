@@ -12,29 +12,41 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Plus, Loader2 } from "lucide-react";
+import { useRetailers } from "@/hooks/useRetailers";
 
 interface CreateBatchDialogProps {
-  onCreateBatch: (batchSize: number, notes?: string) => Promise<void>;
+  onCreateBatch: (batchSize: number, notes?: string, retailerId?: number) => Promise<void>;
   isCreating: boolean;
 }
 
 /**
- * Dialog for creating new QR code batches
+ * Dialog for creating new QR code batches with optional retailer assignment
  */
 export function CreateBatchDialog({ onCreateBatch, isCreating }: CreateBatchDialogProps) {
   const [open, setOpen] = useState(false);
   const [batchSize, setBatchSize] = useState("10");
   const [notes, setNotes] = useState("");
+  const [selectedRetailerId, setSelectedRetailerId] = useState<string>("");
+  const { retailers, isLoading: retailersLoading } = useRetailers();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const size = parseInt(batchSize, 10);
     if (size > 0 && size <= 1000) {
-      await onCreateBatch(size, notes || undefined);
+      const retailerId = selectedRetailerId ? parseInt(selectedRetailerId, 10) : undefined;
+      await onCreateBatch(size, notes || undefined, retailerId);
       setOpen(false);
       setBatchSize("10");
       setNotes("");
+      setSelectedRetailerId("");
     }
   };
 
@@ -70,6 +82,29 @@ export function CreateBatchDialog({ onCreateBatch, isCreating }: CreateBatchDial
               />
               <p className="text-xs text-muted-foreground">
                 Maximum 1000 codes per batch
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="retailer">Retailer (optional)</Label>
+              <Select
+                value={selectedRetailerId}
+                onValueChange={(val) => setSelectedRetailerId(val === "none" ? "" : val)}
+              >
+                <SelectTrigger id="retailer">
+                  <SelectValue placeholder={retailersLoading ? "Loading..." : "No retailer (LOQATR branding)"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No retailer (LOQATR branding)</SelectItem>
+                  {retailers.map((r) => (
+                    <SelectItem key={r.id} value={String(r.id)}>
+                      {r.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Assigns retailer branding to all codes in the batch
               </p>
             </div>
 

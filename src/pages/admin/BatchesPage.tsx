@@ -8,8 +8,8 @@ import { PageHeader, LoadingSpinner } from "@/components/shared";
 export default function BatchesPage() {
   const { batches, isLoading, generateBatch, markAsPrinted } = useBatches();
 
-  const handleCreateBatch = async (batchSize: number, notes?: string) => {
-    await generateBatch.mutateAsync({ batchSize, notes });
+  const handleCreateBatch = async (batchSize: number, notes?: string, retailerId?: number) => {
+    await generateBatch.mutateAsync({ batchSize, notes, retailerId });
   };
 
   const handleMarkPrinted = (batchId: number) => {
